@@ -2,7 +2,7 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('sw.js') // 👈 SIN / delante -> se vuelve /ganados/sw.js
       .then((reg) => {
         console.log('Service worker registrado:', reg.scope);
       })
@@ -11,3 +11,4 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+

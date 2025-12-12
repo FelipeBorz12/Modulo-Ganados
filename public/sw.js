@@ -1,19 +1,18 @@
-// sw.js - service worker básico
+// public/sw.js - service worker básico para Ganados
 
 const CACHE_NAME = 'ganados-cache-v1';
 const URLS_TO_CACHE = [
-  '/',
-  '/login.html',
-  '/dashboard.html',
-  '/ingreso',
-  '/salida',
-  '/modificaciones',
-  '/tw-config.js',
-  '/login.js',
-  '/dashboard.js',
-  '/ingreso.js',
-  '/salida.js',
-  '/modificaciones.js'
+  './',              // equivale a /ganados/
+  'login.html',
+  'dashboard.html',
+  'ingreso',
+  'salida',
+  'modificaciones',
+  'tw-config.js',
+  'dashboard.js',
+  'ingreso.js',
+  'salida.js',
+  'modificaciones.js'
 ];
 
 // Instalar SW y cachear recursos básicos
@@ -23,7 +22,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activar SW
+// Activar SW y limpiar caches viejos
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -42,11 +41,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((resp) => {
-      return (
-        resp ||
-        fetch(event.request).catch(() =>
-          caches.match('/') // fallback al root si no hay red
-        )
+      if (resp) return resp;
+      return fetch(event.request).catch(() =>
+        caches.match('./') // fallback al inicio de la app (/ganados/)
       );
     })
   );
