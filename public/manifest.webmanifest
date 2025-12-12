@@ -1,0 +1,22 @@
+{
+  "name": "Módulo Ganados",
+  "short_name": "Ganados",
+  "description": "Módulo interno para gestión de ingresos y salidas de ganado.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1d4ed8",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icons/vaca.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/vaca.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

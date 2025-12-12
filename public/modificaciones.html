@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Modificaciones - Módulo Ganados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="tw-config.js"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
+    <!-- HEADER -->
+    <header class="bg-indigo-600 text-white shadow">
+      <div class="w-full px-4 md:px-8 py-4 flex items-center justify-between">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-xs md:text-sm text-indigo-100">
+            Módulo Ganados
+          </span>
+          <h1 class="text-xl md:text-2xl font-semibold tracking-wide">
+            Modificaciones
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="hidden sm:inline-flex px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm"
+            onclick="window.location.href='/dashboard'"
+          >
+            Ir al histórico
+          </button>
+
+          <button
+            id="btn-logout"
+            type="button"
+            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+          >
+            <span
+              class="inline-flex h-6 w-6 rounded-full bg-white/20 items-center justify-center text-xs"
+            >
+              ⎋
+            </span>
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENIDO -->
+    <main
+      class="w-full px-3 sm:px-4 md:px-8 lg:px-12 py-6 md:py-8 space-y-6 md:space-y-8"
+    >
+      <!-- DESCRIPCIÓN -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <h2 class="text-lg md:text-2xl font-semibold text-slate-900 mb-2">
+          Buscar y modificar registros
+        </h2>
+        <p class="text-sm md:text-base text-slate-600">
+          Localiza un animal por su número, realiza los cambios necesarios en
+          los datos de ingreso o salida y guarda las modificaciones. También
+          puedes eliminar completamente el registro si es necesario.
+        </p>
+      </section>
+
+      <!-- BÚSQUEDA -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-4 md:py-5">
+        <form
+          id="form-buscar-mod"
+          class="flex flex-col md:flex-row gap-3 md:items-end"
+        >
+          <div class="flex-1 flex flex-col gap-1">
+            <label
+              for="numeroBuscarMod"
+              class="text-sm md:text-base font-medium text-slate-800"
+              >Número del animal</label
+            >
+            <input
+              id="numeroBuscarMod"
+              type="text"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Ej. A123"
+              required
+            />
+          </div>
+
+          <button
+            id="btn-buscar-mod"
+            type="submit"
+            class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
+          >
+            Buscar
+          </button>
+        </form>
+
+        <p
+          id="info-mod-encontrado"
+          class="mt-3 text-xs md:text-sm text-slate-500"
+        >
+          Ingresa el número y presiona
+          <span class="font-semibold">Buscar</span>.
+        </p>
+      </section>
+
+      <!-- FORMULARIO MODIFICACIÓN -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <form id="form-modificaciones" class="space-y-6">
+          <!-- DATOS DE INGRESO -->
+          <div class="space-y-3">
+            <h3 class="text-base md:text-lg font-semibold text-slate-900">
+              Datos de ingreso
+            </h3>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-3">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-fechaIngreso"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Fecha ingreso</label
+                >
+                <input
+                  id="mod-fechaIngreso"
+                  type="date"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-numero"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Número</label
+                >
+                <input
+                  id="mod-numero"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-finca"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Finca</label
+                >
+                <input
+                  id="mod-finca"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-color"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Color</label
+                >
+                <input
+                  id="mod-color"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-sexo"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Sexo</label
+                >
+                <select
+                  id="mod-sexo"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Seleccione...</option>
+                  <option value="MACHO">Macho</option>
+                  <option value="HEMBRA">Hembra</option>
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-edad"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Edad</label
+                >
+                <input
+                  id="mod-edad"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-raza"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Raza</label
+                >
+                <input
+                  id="mod-raza"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-pesoFinca"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Peso finca (kg)</label
+                >
+                <input
+                  id="mod-pesoFinca"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-peso"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Peso ingreso (kg)</label
+                >
+                <input
+                  id="mod-peso"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-marca"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Marca llegada</label
+                >
+                <input
+                  id="mod-marca"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-proveedor"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Proveedor</label
+                >
+                <input
+                  id="mod-proveedor"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-valorKGingreso"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Valor kg ingreso</label
+                >
+                <input
+                  id="mod-valorKGingreso"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-flete"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Flete</label
+                >
+                <input
+                  id="mod-flete"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-comision"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Comisión</label
+                >
+                <input
+                  id="mod-comision"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-mermas"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Mermas</label
+                >
+                <input
+                  id="mod-mermas"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- DATOS DE SALIDA -->
+          <div class="space-y-3">
+            <h3 class="text-base md:text-lg font-semibold text-slate-900">
+              Datos de salida
+            </h3>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-fechaSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Fecha salida</label
+                >
+                <input
+                  id="mod-fechaSalida"
+                  type="date"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-pesoSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Peso salida (kg)</label
+                >
+                <input
+                  id="mod-pesoSalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-pesoFincaSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Peso finca (kg)</label
+                >
+                <input
+                  id="mod-pesoFincaSalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-destino"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Destino</label
+                >
+                <input
+                  id="mod-destino"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-valorKGsalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Valor kg salida</label
+                >
+                <input
+                  id="mod-valorKGsalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-fleteSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Flete salida</label
+                >
+                <input
+                  id="mod-fleteSalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-comisionSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Comisión salida</label
+                >
+                <input
+                  id="mod-comisionSalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label
+                  for="mod-mermasSalida"
+                  class="text-sm md:text-base font-medium text-slate-800"
+                  >Mermas salida</label
+                >
+                <input
+                  id="mod-mermasSalida"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- BOTONES -->
+          <div
+            class="flex flex-wrap gap-3 justify-between pt-3 border-t border-slate-100 mt-4"
+          >
+            <button
+              type="button"
+              id="btn-eliminar-registro"
+              class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700 shadow"
+            >
+              Eliminar registro
+            </button>
+
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="button"
+                id="btn-revertir-cambios"
+                class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
+              >
+                Revertir cambios
+              </button>
+              <button
+                type="submit"
+                id="btn-guardar-cambios"
+                class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
+              >
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <!-- MODALES -->
+    <div
+      id="loading-modal"
+      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 flex flex-col items-center gap-3"
+      >
+        <div
+          class="h-10 w-10 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"
+        ></div>
+        <p class="text-sm md:text-base text-slate-800 font-medium">
+          Procesando cambios...
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="success-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-emerald-700">
+          Cambios guardados
+        </h3>
+        <p class="text-sm md:text-base text-slate-700">
+          El registro fue actualizado correctamente.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="success-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm md:text-base font-semibold hover:bg-emerald-700"
+          >
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ERROR -->
+    <div
+      id="error-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-rose-600">
+          Error en la operación
+        </h3>
+        <p id="error-message" class="text-sm md:text-base text-slate-700">
+          Ocurrió un error al procesar la solicitud.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="error-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ADVERTENCIA GENERAL -->
+    <div
+      id="warning-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-amber-600">Advertencia</h3>
+        <p id="warning-message" class="text-sm md:text-base text-slate-700">
+          Revisa los datos antes de guardar.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="warning-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-amber-500 text-white text-sm md:text-base font-semibold hover:bg-amber-600"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN ELIMINAR -->
+    <div
+      id="delete-modal"
+      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-4"
+      >
+        <h3 class="text-lg font-semibold text-rose-600">¿Eliminar registro?</h3>
+        <p class="text-sm md:text-base text-slate-700">
+          Esta acción borrará definitivamente el registro del animal en el
+          histórico. No se puede deshacer.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button
+            id="delete-cancel"
+            type="button"
+            class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <button
+            id="delete-confirm"
+            type="button"
+            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="modificaciones.js" defer></script>
+    <script src="pwa.js" defer></script>
+
+  </body>
+</html>

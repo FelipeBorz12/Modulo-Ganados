@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nueva salida - Módulo Ganados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="tw-config.js"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
+    <!-- HEADER -->
+    <header class="bg-indigo-600 text-white shadow">
+      <div class="w-full px-4 md:px-8 py-4 flex items-center justify-between">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-xs md:text-sm text-indigo-100">
+            Módulo Ganados
+          </span>
+          <h1 class="text-xl md:text-2xl font-semibold tracking-wide">
+            Nueva salida
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="hidden sm:inline-flex px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm"
+            onclick="window.location.href='/dashboard'"
+          >
+            Ir al histórico
+          </button>
+
+          <button
+            id="btn-logout"
+            type="button"
+            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+          >
+            <span
+              class="inline-flex h-6 w-6 rounded-full bg-white/20 items-center justify-center text-xs"
+            >
+              ⎋
+            </span>
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENIDO -->
+    <main
+      class="w-full px-3 sm:px-4 md:px-8 lg:px-12 py-6 md:py-8 space-y-6 md:space-y-8"
+    >
+      <!-- DESCRIPCIÓN -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <h2 class="text-lg md:text-2xl font-semibold text-slate-900 mb-2">
+          Registrar salida de ganado
+        </h2>
+        <p class="text-sm md:text-base text-slate-600">
+          Primero busca el animal por su número. Una vez encontrado, registra
+          únicamente la información relacionada con la
+          <span class="font-semibold">salida</span>.
+        </p>
+      </section>
+
+      <!-- BÚSQUEDA -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-4 md:py-5">
+        <form
+          id="form-buscar-salida"
+          class="flex flex-col md:flex-row gap-3 md:items-end"
+        >
+          <div class="flex-1 flex flex-col gap-1">
+            <label
+              for="numeroBuscarSalida"
+              class="text-sm md:text-base font-medium text-slate-800"
+              >Número del animal</label
+            >
+            <input
+              id="numeroBuscarSalida"
+              type="text"
+              class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Ej. A123"
+              required
+            />
+          </div>
+
+          <button
+            id="btn-buscar-salida"
+            type="submit"
+            class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
+          >
+            Buscar
+          </button>
+        </form>
+
+        <p
+          id="info-salida-encontrado"
+          class="mt-3 text-xs md:text-sm text-slate-500"
+        >
+          Ingresa el número y presiona
+          <span class="font-semibold">Buscar</span>.
+        </p>
+      </section>
+
+      <!-- FORMULARIO SALIDA -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <form id="form-salida" class="space-y-6">
+          <!-- DATOS RESUMEN INGRESO (SOLO LECTURA) -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label class="text-sm md:text-base font-medium text-slate-800"
+                >Número</label
+              >
+              <input
+                id="salida-numero"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm md:text-base"
+                readonly
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-sm md:text-base font-medium text-slate-800"
+                >Finca</label
+              >
+              <input
+                id="salida-finca"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm md:text-base"
+                readonly
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-sm md:text-base font-medium text-slate-800"
+                >Peso ingreso (kg)</label
+              >
+              <input
+                id="salida-peso-ingreso"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm md:text-base"
+                readonly
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-sm md:text-base font-medium text-slate-800"
+                >Valor kg ingreso</label
+              >
+              <input
+                id="salida-valor-ingreso"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm md:text-base"
+                readonly
+              />
+            </div>
+          </div>
+
+          <!-- CAMPOS DE SALIDA -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label
+                for="fechaSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Fecha de salida</label
+              >
+              <input
+                id="fechaSalida"
+                type="date"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="pesoSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Peso salida (kg)</label
+              >
+              <input
+                id="pesoSalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="pesoFincaSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Peso finca (kg)</label
+              >
+              <input
+                id="pesoFincaSalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="destino"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Destino</label
+              >
+              <input
+                id="destino"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ej. planta, finca, subasta..."
+              />
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label
+                for="valorKGsalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Valor kg salida</label
+              >
+              <input
+                id="valorKGsalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="fleteSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Flete</label
+              >
+              <input
+                id="fleteSalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="comisionSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Comisión</label
+              >
+              <input
+                id="comisionSalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="mermasSalida"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Mermas</label
+              >
+              <input
+                id="mermasSalida"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+          </div>
+
+          <!-- BOTONES -->
+          <div class="flex flex-wrap gap-3 justify-end pt-2">
+            <button
+              type="button"
+              id="btn-limpiar-salida"
+              class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
+            >
+              Limpiar
+            </button>
+            <button
+              type="submit"
+              id="btn-guardar-salida"
+              class="px-5 py-2 rounded-full bg-emerald-600 text-white text-sm md:text-base font-semibold hover:bg-emerald-700 shadow"
+            >
+              Guardar salida
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <!-- MODALES COMPARTIDOS -->
+    <div
+      id="loading-modal"
+      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 flex flex-col items-center gap-3"
+      >
+        <div
+          class="h-10 w-10 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"
+        ></div>
+        <p class="text-sm md:text-base text-slate-800 font-medium">
+          Procesando información...
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="success-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-emerald-700">
+          Salida registrada
+        </h3>
+        <p class="text-sm md:text-base text-slate-700">
+          Los datos de salida se guardaron correctamente.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="success-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm md:text-base font-semibold hover:bg-emerald-700"
+          >
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="error-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-rose-600">
+          Error al registrar salida
+        </h3>
+        <p id="error-message" class="text-sm md:text-base text-slate-700">
+          Ocurrió un error al procesar la información.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="error-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="warning-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-amber-600">Atención</h3>
+        <p id="warning-message" class="text-sm md:text-base text-slate-700">
+          Verifica los datos antes de confirmar la salida.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="warning-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-amber-500 text-white text-sm md:text-base font-semibold hover:bg-amber-600"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="salida.js" defer></script>
+    <script src="pwa.js" defer></script>
+
+  </body>
+</html>

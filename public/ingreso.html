@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nuevo ingreso - Módulo Ganados</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="tw-config.js"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
+    <!-- HEADER -->
+    <header class="bg-indigo-600 text-white shadow">
+      <div class="w-full px-4 md:px-8 py-4 flex items-center justify-between">
+        <div class="flex flex-col gap-0.5">
+          <span class="text-xs md:text-sm text-indigo-100">
+            Módulo Ganados
+          </span>
+          <h1 class="text-xl md:text-2xl font-semibold tracking-wide">
+            Nuevo ingreso
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="hidden sm:inline-flex px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm"
+            onclick="window.location.href='/dashboard'"
+          >
+            Ir al histórico
+          </button>
+
+          <button
+            id="btn-logout"
+            type="button"
+            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+          >
+            <span
+              class="inline-flex h-6 w-6 rounded-full bg-white/20 items-center justify-center text-xs"
+            >
+              ⎋
+            </span>
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENIDO -->
+    <main
+      class="w-full px-3 sm:px-4 md:px-8 lg:px-12 py-6 md:py-8 space-y-6 md:space-y-8"
+    >
+      <!-- DESCRIPCIÓN -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <h2 class="text-lg md:text-2xl font-semibold text-slate-900 mb-2">
+          Registrar ingreso de ganado
+        </h2>
+        <p class="text-sm md:text-base text-slate-600">
+          Diligencia únicamente la información correspondiente al ingreso del
+          animal. Los campos de salida se completan más adelante en el módulo de
+          <span class="font-semibold">Nueva salida</span>.
+        </p>
+      </section>
+
+      <!-- FORMULARIO -->
+      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
+        <form id="form-ingreso" class="space-y-6">
+          <!-- FILA 1 -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-3 items-end">
+            <div class="flex flex-col gap-1">
+              <label
+                for="fechaIngreso"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Fecha de ingreso</label
+              >
+              <input
+                id="fechaIngreso"
+                type="date"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="numero"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Número (ID del animal)</label
+              >
+              <input
+                id="numero"
+                type="text"
+                maxlength="50"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ej. A123"
+                required
+              />
+              <p class="text-xs md:text-sm text-slate-500">
+                Si tiene letras, deben ir en
+                <span class="font-semibold">MAYÚSCULAS</span>.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="finca"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Finca</label
+              >
+              <input
+                id="finca"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Nombre de la finca"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- FILA 2 -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label
+                for="color"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Color</label
+              >
+              <input
+                id="color"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="sexo"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Sexo</label
+              >
+              <select
+                id="sexo"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="">Seleccione...</option>
+                <option value="MACHO">Macho</option>
+                <option value="HEMBRA">Hembra</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="edad"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Edad</label
+              >
+              <input
+                id="edad"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ej. 18 meses"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="raza"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Raza</label
+              >
+              <input
+                id="raza"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ej. Holstein"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- FILA 3 PESOS / MARCA -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label
+                for="pesoFinca"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Peso en finca (kg)</label
+              >
+              <input
+                id="pesoFinca"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Opcional"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="peso"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Peso ingreso (kg)</label
+              >
+              <input
+                id="peso"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="marca"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Marca llegada</label
+              >
+              <input
+                id="marca"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="proveedor"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Proveedor</label
+              >
+              <input
+                id="proveedor"
+                type="text"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+
+          <!-- FILA 4 VALORES -->
+          <div class="grid gap-4 md:gap-6 md:grid-cols-4">
+            <div class="flex flex-col gap-1">
+              <label
+                for="valorKGingreso"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Valor kg ingreso</label
+              >
+              <input
+                id="valorKGingreso"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="flete"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Flete</label
+              >
+              <input
+                id="flete"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="comision"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Comisión</label
+              >
+              <input
+                id="comision"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+
+            <div class="flex flex-col gap-1">
+              <label
+                for="mermas"
+                class="text-sm md:text-base font-medium text-slate-800"
+                >Mermas</label
+              >
+              <input
+                id="mermas"
+                type="number"
+                step="0.01"
+                min="0"
+                class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value="0"
+              />
+            </div>
+          </div>
+
+          <!-- BOTONES -->
+          <div class="flex flex-wrap gap-3 justify-end pt-2">
+            <button
+              type="button"
+              id="btn-limpiar-ingreso"
+              class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
+            >
+              Limpiar formulario
+            </button>
+            <button
+              type="submit"
+              id="btn-guardar-ingreso"
+              class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
+            >
+              Guardar ingreso
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <!-- MODAL CARGA -->
+    <div
+      id="loading-modal"
+      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 flex flex-col items-center gap-3"
+      >
+        <div
+          class="h-10 w-10 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"
+        ></div>
+        <p class="text-sm md:text-base text-slate-800 font-medium">
+          Guardando ingreso...
+        </p>
+      </div>
+    </div>
+
+    <!-- MODAL ÉXITO -->
+    <div
+      id="success-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-emerald-700">
+          Ingreso registrado
+        </h3>
+        <p class="text-sm md:text-base text-slate-700">
+          El ingreso del animal se guardó correctamente en el histórico.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="success-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm md:text-base font-semibold hover:bg-emerald-700"
+          >
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ERROR -->
+    <div
+      id="error-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-rose-600">Error al guardar</h3>
+        <p id="error-message" class="text-sm md:text-base text-slate-700">
+          Ocurrió un error al registrar el ingreso.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="error-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ADVERTENCIA (si ya existe número, etc.) -->
+    <div
+      id="warning-modal"
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+      >
+        <h3 class="text-lg font-semibold text-amber-600">
+          Revisar información
+        </h3>
+        <p id="warning-message" class="text-sm md:text-base text-slate-700">
+          Hay información que debe revisarse antes de continuar.
+        </p>
+        <div class="flex justify-end">
+          <button
+            id="warning-close"
+            type="button"
+            class="px-4 py-2 rounded-full bg-amber-500 text-white text-sm md:text-base font-semibold hover:bg-amber-600"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="ingreso.js" defer></script>
+    <script src="pwa.js" defer></script>
+
+  </body>
+</html>
