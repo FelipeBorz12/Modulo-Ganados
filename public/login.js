@@ -9,9 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const iconEye = document.getElementById('icon-eye');
   const iconEyeOff = document.getElementById('icon-eye-off');
 
+  const usernameInput = document.getElementById('username');
   const loadingModal = document.getElementById('loading-modal');
 
-  // Solo mostramos errores en rojo
   function setMessage(text) {
     messageEl.textContent = text || '';
     messageEl.classList.remove('text-red-500');
@@ -36,8 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     iconEyeOff.classList.toggle('hidden', isPassword);
   });
 
-  // Forzar usuario en MAYÚSCULAS (opcional pero útil)
-  const usernameInput = document.getElementById('username');
+  // Usuario en mayúsculas
   usernameInput.addEventListener('input', () => {
     usernameInput.value = usernameInput.value.toUpperCase();
   });
@@ -67,22 +66,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      // RUTA RELATIVA → en / => /api/login, en /ganados => /ganados/api/login
+      // RUTA RELATIVA → funciona en / y en /ganados
       const response = await fetch('api/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, pin }),
       });
 
       const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        // Modal de carga mientras redirige
         showLoading();
-
-        // RUTA RELATIVA → en / => /dashboard.html, en /ganados => /ganados/dashboard.html
+        // en / => /dashboard.html
+        // en /ganados => /ganados/dashboard.html
         window.location.href = 'dashboard.html';
       } else {
         setMessage(data.error || 'Usuario o clave incorrectos.');
@@ -95,8 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.disabled = false;
       button.textContent = 'Ingresar';
     } finally {
-      // Si la respuesta fue OK, deja el botón deshabilitado y el modal activo
-      // El flujo pasa a la redirección
+      // si fue OK, no reactivamos el botón porque ya redirige
     }
   });
 });
