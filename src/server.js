@@ -308,5 +308,5 @@ app.delete('/api/historicoiys/:numero', async (req, res) => {
 
 // ====== ARRANCAR SERVIDOR ======
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor escuchando en http://moduloganados:${PORT}`);
+  console.log(`🚀 Servidor escuchando en ${PORT}`);
 });
