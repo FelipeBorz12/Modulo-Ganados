@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const iconEye = document.getElementById('icon-eye');
   const iconEyeOff = document.getElementById('icon-eye-off');
 
-  const usernameInput = document.getElementById('username');
   const loadingModal = document.getElementById('loading-modal');
 
   function setMessage(text) {
@@ -34,11 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     iconEye.classList.toggle('hidden', !isPassword);
     iconEyeOff.classList.toggle('hidden', isPassword);
-  });
-
-  // Usuario en mayúsculas
-  usernameInput.addEventListener('input', () => {
-    usernameInput.value = usernameInput.value.toUpperCase();
   });
 
   // Envío del formulario
@@ -77,8 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (response.ok) {
         showLoading();
-        // en / => /dashboard.html
-        // en /ganados => /ganados/dashboard.html
+        // en / => dashboard.html
+        // en /ganados => dashboard.html (relativo)
         window.location.href = 'dashboard.html';
       } else {
         setMessage(data.error || 'Usuario o clave incorrectos.');
