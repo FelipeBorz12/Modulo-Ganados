@@ -1,95 +1,109 @@
 // public/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
-  // =========================
-  // Helpers (robustos)
-  // =========================
-  const byId = (id) => document.getElementById(id);
+  // ====== DOM BÁSICO ======
+  const tablaHead = document.getElementById("tabla-head");
+  const tablaBody = document.getElementById("tabla-body");
+  const tablaWrapper = document.getElementById("tabla-wrapper");
 
-  const on = (el, event, handler, opts) => {
+  const totalGeneralEl = document.getElementById("total-general");
+  const totalIngresosEl = document.getElementById("total-ingresos");
+  const totalSalidasEl = document.getElementById("total-salidas");
+  const totalValorIngresoEl = document.getElementById("total-valor-ingreso");
+  const totalValorSalidaEl = document.getElementById("total-valor-salida");
+
+  // ✅ Utilidad
+  const totalUtilidadEl = document.getElementById("total-utilidad");
+  const totalUtilidadPctEl = document.getElementById("total-utilidad-pct");
+
+  const statPesoIngEl = document.getElementById("stat-peso-ing");
+  const statPesoSalEl = document.getElementById("stat-peso-sal");
+  const statPesoGananciaEl = document.getElementById("stat-peso-ganancia");
+  const statValorIngEl = document.getElementById("stat-valor-ing");
+  const statValorSalEl = document.getElementById("stat-valor-sal");
+  const statPrediccionEl = document.getElementById("stat-prediccion");
+
+  const btnIngresoTab = document.getElementById("btn-ingreso");
+  const btnSalidaTab = document.getElementById("btn-salida");
+
+  const btnActualizar = document.getElementById("btn-actualizar");
+  const btnExportarTodo = document.getElementById("btn-exportar-todo");
+  const btnExportarVista = document.getElementById("btn-exportar-vista");
+
+  const selectionInfo = document.getElementById("selection-info");
+  const selectionInfoMobile = document.getElementById("selection-info-mobile");
+
+  // Date range TOP
+  const rangePrevTop = document.getElementById("range-prev-top");
+  const rangeNextTop = document.getElementById("range-next-top");
+  const rangeClearTop = document.getElementById("range-clear-top");
+  const dateFromTop = document.getElementById("date-from-top");
+  const dateToTop = document.getElementById("date-to-top");
+
+  // Date range BOTTOM
+  const rangePrevBottom = document.getElementById("range-prev-bottom");
+  const rangeNextBottom = document.getElementById("range-next-bottom");
+  const rangeClearBottom = document.getElementById("range-clear-bottom");
+  const dateFromBottom = document.getElementById("date-from-bottom");
+  const dateToBottom = document.getElementById("date-to-bottom");
+
+  // Pager TOP
+  const pageInfoTop = document.getElementById("page-info-top");
+  const pagePrevTop = document.getElementById("page-prev-top");
+  const pageNextTop = document.getElementById("page-next-top");
+  const pageSize100Top = document.getElementById("page-size-100-top");
+  const pageSize200Top = document.getElementById("page-size-200-top");
+  const pageSize300Top = document.getElementById("page-size-300-top");
+  const pageSizeAllTop = document.getElementById("page-size-all-top");
+
+  // Pager BOTTOM
+  const pageInfoBottom = document.getElementById("page-info-bottom");
+  const pagePrevBottom = document.getElementById("page-prev-bottom");
+  const pageNextBottom = document.getElementById("page-next-bottom");
+  const pageSize100Bottom = document.getElementById("page-size-100-bottom");
+  const pageSize200Bottom = document.getElementById("page-size-200-bottom");
+  const pageSize300Bottom = document.getElementById("page-size-300-bottom");
+  const pageSizeAllBottom = document.getElementById("page-size-all-bottom");
+
+  // Floating top/bottom (si existen)
+  const fabTop = document.getElementById("fab-top");
+  const fabBottom = document.getElementById("fab-bottom");
+  const pageTop = document.getElementById("page-top");
+  const pageBottom = document.getElementById("page-bottom");
+
+  // Logout modal
+  const btnLogout = document.getElementById("btn-logout");
+  const logoutModal = document.getElementById("logout-modal");
+  const logoutCancel = document.getElementById("logout-cancel");
+  const logoutConfirm = document.getElementById("logout-confirm");
+
+  // ====== HELPERS UI ======
+  function setText(el, text) {
     if (!el) return;
-    el.addEventListener(event, handler, opts);
-  };
-
-  // =========================
-  // ✅ Toast + Clipboard
-  // =========================
-  let toastTimer = null;
-
-  function ensureToastEl() {
-    let el = byId("ganados-toast");
-    if (el) return el;
-
-    el = document.createElement("div");
-    el.id = "ganados-toast";
-    el.className =
-      "fixed right-4 bottom-6 z-[9999] hidden max-w-[92vw] md:max-w-md " +
-      "rounded-full px-4 py-2 shadow-lg ring-1 ring-inset " +
-      "bg-white dark:bg-[#2c2b3b] ring-gray-200 dark:ring-gray-700 " +
-      "text-sm font-semibold text-gray-800 dark:text-gray-100 " +
-      "flex items-center gap-2";
-
-    const dot = document.createElement("span");
-    dot.id = "ganados-toast-dot";
-    dot.className = "inline-block size-2 rounded-full bg-emerald-500";
-    el.appendChild(dot);
-
-    const msg = document.createElement("span");
-    msg.id = "ganados-toast-msg";
-    msg.className = "truncate";
-    el.appendChild(msg);
-
-    document.body.appendChild(el);
-    return el;
-  }
-
-  function showToast(message, type = "success") {
-    const el = ensureToastEl();
-    const msg = byId("ganados-toast-msg");
-    const dot = byId("ganados-toast-dot");
-
-    if (msg) msg.textContent = message;
-
-    if (dot) {
-      dot.classList.remove("bg-emerald-500", "bg-amber-500", "bg-rose-500");
-      if (type === "warn") dot.classList.add("bg-amber-500");
-      else if (type === "error") dot.classList.add("bg-rose-500");
-      else dot.classList.add("bg-emerald-500");
-    }
-
-    el.classList.remove("hidden");
-
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      el.classList.add("hidden");
-    }, 1800);
+    el.textContent = text;
+    el.title = text; // ✅ para ver el valor completo
   }
 
   async function copyToClipboard(text) {
     const value = (text ?? "").toString();
     if (!value) return false;
 
-    // 1) Clipboard API (mejor)
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(value);
         return true;
       }
-    } catch (_) {
-      // seguimos a fallback
-    }
+    } catch (_) {}
 
-    // 2) Fallback (textarea)
+    // fallback
     try {
       const ta = document.createElement("textarea");
       ta.value = value;
-      ta.setAttribute("readonly", "");
       ta.style.position = "fixed";
-      ta.style.top = "-9999px";
       ta.style.left = "-9999px";
+      ta.style.top = "-9999px";
       document.body.appendChild(ta);
+      ta.focus();
       ta.select();
-      ta.setSelectionRange(0, ta.value.length);
-
       const ok = document.execCommand("copy");
       document.body.removeChild(ta);
       return ok;
@@ -98,81 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // =========================
-  // ====== DOM BÁSICO ======
-  // =========================
-  const tablaHead = byId("tabla-head");
-  const tablaBody = byId("tabla-body");
-  const tablaWrapper = byId("tabla-wrapper");
-
-  const totalGeneralEl = byId("total-general");
-  const totalIngresosEl = byId("total-ingresos");
-  const totalSalidasEl = byId("total-salidas");
-  const totalValorIngresoEl = byId("total-valor-ingreso");
-  const totalValorSalidaEl = byId("total-valor-salida");
-
-  // ✅ Utilidad
-  const totalUtilidadEl = byId("total-utilidad");
-  const totalUtilidadPctEl = byId("total-utilidad-pct");
-
-  const statPesoIngEl = byId("stat-peso-ing");
-  const statPesoSalEl = byId("stat-peso-sal");
-  const statPesoGananciaEl = byId("stat-peso-ganancia");
-  const statValorIngEl = byId("stat-valor-ing");
-  const statValorSalEl = byId("stat-valor-sal");
-  const statPrediccionEl = byId("stat-prediccion");
-
-  const btnIngresoTab = byId("btn-ingreso");
-  const btnSalidaTab = byId("btn-salida");
-
-  const btnActualizar = byId("btn-actualizar");
-  const btnExportarTodo = byId("btn-exportar-todo");
-  const btnExportarVista = byId("btn-exportar-vista");
-
-  const selectionInfo = byId("selection-info");
-  const selectionInfoMobile = byId("selection-info-mobile");
-
-  // Date range TOP
-  const rangePrevTop = byId("range-prev-top");
-  const rangeNextTop = byId("range-next-top");
-  const rangeClearTop = byId("range-clear-top");
-  const dateFromTop = byId("date-from-top");
-  const dateToTop = byId("date-to-top");
-
-  // Date range BOTTOM
-  const rangePrevBottom = byId("range-prev-bottom");
-  const rangeNextBottom = byId("range-next-bottom");
-  const rangeClearBottom = byId("range-clear-bottom");
-  const dateFromBottom = byId("date-from-bottom");
-  const dateToBottom = byId("date-to-bottom");
-
-  // Pager TOP
-  const pageInfoTop = byId("page-info-top");
-  const pagePrevTop = byId("page-prev-top");
-  const pageNextTop = byId("page-next-top");
-  const pageSize100Top = byId("page-size-100-top");
-  const pageSize200Top = byId("page-size-200-top");
-  const pageSize300Top = byId("page-size-300-top");
-  const pageSizeAllTop = byId("page-size-all-top");
-
-  // Pager BOTTOM
-  const pageInfoBottom = byId("page-info-bottom");
-  const pagePrevBottom = byId("page-prev-bottom");
-  const pageNextBottom = byId("page-next-bottom");
-  const pageSize100Bottom = byId("page-size-100-bottom");
-  const pageSize200Bottom = byId("page-size-200-bottom");
-  const pageSize300Bottom = byId("page-size-300-bottom");
-  const pageSizeAllBottom = byId("page-size-all-bottom");
-
-  // Logout modal
-  const btnLogout = byId("btn-logout");
-  const logoutModal = byId("logout-modal");
-  const logoutCancel = byId("logout-cancel");
-  const logoutConfirm = byId("logout-confirm");
-
-  // =========================
   // ====== ESTADO ======
-  // =========================
   let registros = [];
   let vistaActual = "ingreso"; // 'ingreso' | 'salida'
   let filtros = {}; // {colKey: texto}
@@ -189,9 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let dateFrom = "";
   let dateTo = "";
 
-  // =========================
-  // ====== CONFIG DE COLUMNAS
-  // =========================
+  // ====== CONFIG DE COLUMNAS ======
   const columnasIngreso = [
     { key: "Numero", label: "Número" },
     { key: "FechaIngreso", label: "F Ingreso" },
@@ -232,9 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return vistaActual === "ingreso" ? columnasIngreso : columnasSalida;
   }
 
-  // =========================
   // ====== UTILIDADES ======
-  // =========================
   function formatMoney(value) {
     const num = Number(value) || 0;
     return num.toLocaleString("es-CO", {
@@ -271,8 +207,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function rawValue(row, key) {
-    if (!row) return null;
-
     if (key === "totalIngreso") {
       const peso = Number(row.Peso) || 0;
       const precio = Number(row.ValorKGingreso) || 0;
@@ -322,7 +256,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return formatMoney(value);
     }
 
-    if (key === "ValorKGingreso" || key === "ValorKGsalida" || key === "Flete" || key === "Comision" || key === "Mermas") {
+    if (
+      key === "ValorKGingreso" ||
+      key === "ValorKGsalida" ||
+      key === "Flete" ||
+      key === "Comision" ||
+      key === "Mermas"
+    ) {
       return formatNumber(value);
     }
 
@@ -398,25 +338,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // =========================
-  // ====== CABECERA + FILTROS
-  // =========================
+  // ====== CABECERA + FILTROS ======
   function construirHead() {
     if (!tablaHead) return;
     const cols = getColumnConfig();
     tablaHead.innerHTML = "";
 
     const trHeader = document.createElement("tr");
-    trHeader.className = "bg-gray-50 dark:bg-[#252433] text-gray-700 dark:text-gray-200";
+    trHeader.className =
+      "bg-gray-50 dark:bg-[#252433] text-gray-700 dark:text-gray-200";
 
-    // Columna #
     const thIndex = document.createElement("th");
     thIndex.className =
       "px-3 py-3 text-left align-bottom whitespace-nowrap text-xs md:text-sm font-extrabold uppercase tracking-wider";
     thIndex.textContent = "#";
     trHeader.appendChild(thIndex);
 
-    // Checkbox header
     const thCheck = document.createElement("th");
     thCheck.className = "px-3 py-3 text-center align-bottom";
     const headerCheckbox = document.createElement("input");
@@ -424,7 +361,9 @@ document.addEventListener("DOMContentLoaded", () => {
     headerCheckbox.id = "select-all-checkbox";
     headerCheckbox.className =
       "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
-    on(headerCheckbox, "change", () => handleSelectAll(headerCheckbox.checked));
+    headerCheckbox.addEventListener("change", () => {
+      handleSelectAll(headerCheckbox.checked);
+    });
     thCheck.appendChild(headerCheckbox);
     trHeader.appendChild(thCheck);
 
@@ -436,7 +375,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.dataset.sortKey = col.key;
-      btn.className = "flex items-center gap-1 hover:text-primary transition-colors";
+      btn.className =
+        "flex items-center gap-1 hover:text-primary transition-colors";
 
       const spanLabel = document.createElement("span");
       spanLabel.textContent = col.label;
@@ -454,7 +394,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tablaHead.appendChild(trHeader);
 
-    // Filtros
     const trFilters = document.createElement("tr");
     trFilters.className = "bg-white dark:bg-surface-dark";
 
@@ -478,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
       input.dataset.filter = col.key;
       input.value = filtros[col.key] || "";
 
-      on(input, "input", () => {
+      input.addEventListener("input", () => {
         filtros[col.key] = input.value.trim().toLowerCase();
         pageIndex = 1;
         aplicarFiltrosYRender();
@@ -490,9 +429,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tablaHead.appendChild(trFilters);
 
-    // Orden
-    tablaHead.querySelectorAll("[data-sort-key]").forEach((b) => {
-      on(b, "click", () => manejarOrden(b.dataset.sortKey));
+    tablaHead.querySelectorAll("[data-sort-key]").forEach((btn) => {
+      btn.addEventListener("click", () => manejarOrden(btn.dataset.sortKey));
     });
   }
 
@@ -528,9 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
     aplicarFiltrosYRender();
   }
 
-  // =========================
-  // ====== FECHAS
-  // =========================
+  // ====== FECHAS ======
   function dateKeyForVista() {
     return vistaActual === "ingreso" ? "FechaIngreso" : "FechaSalida";
   }
@@ -567,9 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
     applyDateChange(iso(newFrom), iso(newTo));
   }
 
-  // =========================
-  // ====== PAGINACIÓN
-  // =========================
+  // ====== PAGINACIÓN ======
   function totalPages(total) {
     if (pageSize === Infinity) return 1;
     return Math.max(1, Math.ceil(total / pageSize));
@@ -604,7 +538,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pageInfoBottom) pageInfoBottom.textContent = msg;
 
     const disablePrev = pageIndex <= 1 || total === 0 || pageSize === Infinity;
-    const disableNext = pageIndex >= pages || total === 0 || pageSize === Infinity;
+    const disableNext =
+      pageIndex >= pages || total === 0 || pageSize === Infinity;
 
     if (pagePrevTop) pagePrevTop.disabled = disablePrev;
     if (pagePrevBottom) pagePrevBottom.disabled = disablePrev;
@@ -633,9 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return rows.slice(startIdx, startIdx + pageSize);
   }
 
-  // =========================
-  // ====== CARGA DATOS
-  // =========================
+  // ====== CARGA DATOS ======
   async function cargarDatos() {
     try {
       const res = await fetch("/api/historicoiys");
@@ -688,26 +621,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalIngresos = ingresosContext.length;
     const totalSalidas = salidasContext.length;
 
-    const totalValorIngreso = ingresosContext.reduce((acc, r) => acc + (rawValue(r, "totalIngreso") || 0), 0);
-    const totalValorSalida = salidasContext.reduce((acc, r) => acc + (rawValue(r, "totalSalidaCalc") || 0), 0);
+    const totalValorIngreso = ingresosContext.reduce(
+      (acc, r) => acc + (rawValue(r, "totalIngreso") || 0),
+      0
+    );
 
-    if (totalGeneralEl) totalGeneralEl.textContent = total;
-    if (totalIngresosEl) totalIngresosEl.textContent = totalIngresos;
-    if (totalSalidasEl) totalSalidasEl.textContent = totalSalidas;
-    if (totalValorIngresoEl) totalValorIngresoEl.textContent = formatMoney(totalValorIngreso);
-    if (totalValorSalidaEl) totalValorSalidaEl.textContent = formatMoney(totalValorSalida);
+    const totalValorSalida = salidasContext.reduce(
+      (acc, r) => acc + (rawValue(r, "totalSalidaCalc") || 0),
+      0
+    );
 
-    const totalIngresoDeSalidas = salidasContext.reduce((acc, r) => acc + (rawValue(r, "totalIngreso") || 0), 0);
-    const totalUtilidad = salidasContext.reduce((acc, r) => acc + (rawValue(r, "utilidad") || 0), 0);
+    setText(totalGeneralEl, String(total));
+    setText(totalIngresosEl, String(totalIngresos));
+    setText(totalSalidasEl, String(totalSalidas));
+    setText(totalValorIngresoEl, formatMoney(totalValorIngreso));
+    setText(totalValorSalidaEl, formatMoney(totalValorSalida));
 
-    if (totalUtilidadEl) totalUtilidadEl.textContent = formatMoney(totalUtilidad);
+    const totalIngresoDeSalidas = salidasContext.reduce(
+      (acc, r) => acc + (rawValue(r, "totalIngreso") || 0),
+      0
+    );
+
+    const totalUtilidad = salidasContext.reduce(
+      (acc, r) => acc + (rawValue(r, "utilidad") || 0),
+      0
+    );
+
+    setText(totalUtilidadEl, formatMoney(totalUtilidad));
 
     if (totalUtilidadPctEl) {
       if (totalIngresoDeSalidas > 0) {
         const pct = (totalUtilidad / totalIngresoDeSalidas) * 100;
-        totalUtilidadPctEl.textContent = `${pct.toFixed(2)}%`;
+        setText(totalUtilidadPctEl, `${pct.toFixed(2)}%`);
       } else {
-        totalUtilidadPctEl.textContent = "-";
+        setText(totalUtilidadPctEl, "-");
       }
     }
 
@@ -761,9 +708,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setPageSizeStyles();
   }
 
-  // =========================
-  // ✅ Render con botón copiar junto al Número
-  // =========================
   function renderTabla(filas) {
     if (!tablaBody) return;
     const cols = getColumnConfig();
@@ -778,14 +722,13 @@ document.addEventListener("DOMContentLoaded", () => {
         "bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-[#252433] transition-colors";
       tr.dataset.numero = numero;
 
-      // #
       const tdIndex = document.createElement("td");
-      tdIndex.className = "px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200";
+      tdIndex.className =
+        "px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200";
       tdIndex.textContent =
         pageSize === Infinity ? idx + 1 : (pageIndex - 1) * pageSize + (idx + 1);
       tr.appendChild(tdIndex);
 
-      // checkbox
       const tdCheck = document.createElement("td");
       tdCheck.className = "px-3 py-2 text-center";
       const cb = document.createElement("input");
@@ -794,58 +737,69 @@ document.addEventListener("DOMContentLoaded", () => {
         "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
       cb.checked = isSelected;
       cb.dataset.numero = numero;
-
-      on(cb, "click", (e) => {
+      cb.addEventListener("click", (e) => {
         e.stopPropagation();
         handleCheckboxChange(numero, cb.checked);
       });
-
       tdCheck.appendChild(cb);
       tr.appendChild(tdCheck);
 
-      // data
       cols.forEach((col) => {
         const td = document.createElement("td");
-        td.className = "px-3 py-2 whitespace-nowrap text-gray-800 dark:text-gray-200";
+        td.className =
+          "px-3 py-2 whitespace-nowrap text-gray-800 dark:text-gray-200";
 
         const val = rawValue(row, col.key);
 
-        // ✅ Si es la columna "Numero", metemos: Numero + botón copiar
+        // ✅ Botón copiar al lado del Número
         if (col.key === "Numero") {
           const wrap = document.createElement("div");
           wrap.className = "flex items-center gap-2";
 
-          const text = document.createElement("span");
-          text.className = "font-extrabold tracking-wide";
-          text.textContent = formatCell(col.key, val);
+          const span = document.createElement("span");
+          span.className = "font-semibold";
+          span.textContent = formatCell(col.key, val);
 
           const btnCopy = document.createElement("button");
           btnCopy.type = "button";
           btnCopy.className =
-            "inline-flex items-center justify-center size-7 rounded-full " +
-            "bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 " +
-            "hover:bg-gray-50 dark:hover:bg-gray-800 transition";
+            "inline-flex items-center justify-center size-8 rounded-full bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition";
           btnCopy.title = "Copiar número";
-          btnCopy.setAttribute("aria-label", "Copiar número");
+          btnCopy.innerHTML =
+            '<span class="material-symbols-outlined text-[18px]">content_copy</span>';
 
-          // icon (material symbols ya lo tienes en la página)
-          btnCopy.innerHTML = `<span class="material-symbols-outlined text-[18px]">content_copy</span>`;
-
-          on(btnCopy, "click", async (e) => {
+          btnCopy.addEventListener("click", async (e) => {
+            e.preventDefault();
             e.stopPropagation();
             const ok = await copyToClipboard(numero);
-            if (ok) showToast(`Copiado: ${numero}`, "success");
-            else showToast("No se pudo copiar (permiso/HTTPS).", "warn");
+
+            const icon = btnCopy.querySelector(".material-symbols-outlined");
+            if (!icon) return;
+
+            if (ok) {
+              icon.textContent = "done";
+              btnCopy.classList.add("ring-emerald-300");
+              setTimeout(() => {
+                icon.textContent = "content_copy";
+                btnCopy.classList.remove("ring-emerald-300");
+              }, 900);
+            } else {
+              icon.textContent = "error";
+              btnCopy.classList.add("ring-rose-300");
+              setTimeout(() => {
+                icon.textContent = "content_copy";
+                btnCopy.classList.remove("ring-rose-300");
+              }, 900);
+            }
           });
 
-          wrap.appendChild(text);
+          wrap.appendChild(span);
           wrap.appendChild(btnCopy);
           td.appendChild(wrap);
         } else {
           td.textContent = formatCell(col.key, val);
         }
 
-        // resaltar utilidad
         if (col.key === "utilidad") {
           const u = Number(val) || 0;
           td.classList.add("font-bold");
@@ -878,7 +832,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function actualizarHeaderCheckbox() {
-    const headerCb = byId("select-all-checkbox");
+    const headerCb = document.getElementById("select-all-checkbox");
     if (!headerCb) return;
 
     if (vistaFiltradaActual.length === 0) {
@@ -887,7 +841,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const seleccionadosEnVista = vistaFiltradaActual.filter((r) => selectedNumeros.has(r.Numero)).length;
+    const seleccionadosEnVista = vistaFiltradaActual.filter((r) =>
+      selectedNumeros.has(r.Numero)
+    ).length;
 
     if (seleccionadosEnVista === 0) {
       headerCb.checked = false;
@@ -911,38 +867,50 @@ document.addEventListener("DOMContentLoaded", () => {
     if (selectionInfoMobile) selectionInfoMobile.textContent = msg;
   }
 
-  // =========================
   // ====== ESTADÍSTICAS ======
-  // =========================
   function actualizarEstadisticas(rows) {
-    const setDash = () => {
+    if (
+      !rows ||
+      rows.length === 0 ||
+      !statPesoIngEl ||
+      !statPesoSalEl ||
+      !statPesoGananciaEl ||
+      !statValorIngEl ||
+      !statValorSalEl ||
+      !statPrediccionEl
+    ) {
       if (statPesoIngEl) statPesoIngEl.textContent = "-";
       if (statPesoSalEl) statPesoSalEl.textContent = "-";
       if (statPesoGananciaEl) statPesoGananciaEl.textContent = "-";
       if (statValorIngEl) statValorIngEl.textContent = "-";
       if (statValorSalEl) statValorSalEl.textContent = "-";
       if (statPrediccionEl) statPrediccionEl.textContent = "Sin datos suficientes para estimar.";
-    };
-
-    if (!rows || rows.length === 0) {
-      setDash();
       return;
     }
 
-    if (!statPesoIngEl || !statPesoSalEl || !statPesoGananciaEl || !statValorIngEl || !statValorSalEl || !statPrediccionEl) {
-      return;
-    }
+    const pesosIng = rows
+      .map((r) => Number(r.Peso))
+      .filter((v) => Number.isFinite(v) && v > 0);
 
-    const pesosIng = rows.map((r) => Number(r.Peso)).filter((v) => Number.isFinite(v) && v > 0);
-    const pesosSal = rows.map((r) => Number(r.PesoSalida)).filter((v) => Number.isFinite(v) && v > 0);
-    const valIng = rows.map((r) => Number(r.ValorKGingreso)).filter((v) => Number.isFinite(v) && v > 0);
-    const valSal = rows.map((r) => Number(r.ValorKGsalida)).filter((v) => Number.isFinite(v) && v > 0);
+    const pesosSal = rows
+      .map((r) => Number(r.PesoSalida))
+      .filter((v) => Number.isFinite(v) && v > 0);
+
+    const valIng = rows
+      .map((r) => Number(r.ValorKGingreso))
+      .filter((v) => Number.isFinite(v) && v > 0);
+
+    const valSal = rows
+      .map((r) => Number(r.ValorKGsalida))
+      .filter((v) => Number.isFinite(v) && v > 0);
 
     const paresGanancia = rows
       .map((r) => {
         const pi = Number(r.Peso);
         const ps = Number(r.PesoSalida);
-        if (Number.isFinite(pi) && Number.isFinite(ps) && ps > 0 && r.FechaSalida) return ps - pi;
+        if (Number.isFinite(pi) && Number.isFinite(ps) && ps > 0 && r.FechaSalida) {
+          return ps - pi;
+        }
         return null;
       })
       .filter((v) => v !== null);
@@ -972,17 +940,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // =========================
   // ====== EXPORTAR ======
-  // =========================
   function exportarVistaActual() {
     if (!vistaFiltradaActual.length) {
       alert("No hay datos para exportar.");
-      return;
-    }
-
-    if (typeof XLSX === "undefined") {
-      alert("No se pudo exportar: la librería XLSX no está cargada.");
       return;
     }
 
@@ -1006,11 +967,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function exportarTodo() {
     if (!registros.length) {
       alert("No hay datos para exportar.");
-      return;
-    }
-
-    if (typeof XLSX === "undefined") {
-      alert("No se pudo exportar: la librería XLSX no está cargada.");
       return;
     }
 
@@ -1043,9 +999,7 @@ document.addEventListener("DOMContentLoaded", () => {
     XLSX.writeFile(wb, `Historico_completo_${fecha}.xlsx`);
   }
 
-  // =========================
-  // ====== DRAG SCROLL (horizontal)
-  // =========================
+  // ====== DRAG SCROLL ======
   function initDragScroll() {
     if (!tablaWrapper) return;
 
@@ -1065,11 +1019,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tablaWrapper.classList.add("dragging");
       startX = e.clientX;
       scrollLeftStart = tablaWrapper.scrollLeft;
-
       try {
         tablaWrapper.setPointerCapture(e.pointerId);
       } catch (_) {}
-
       e.preventDefault();
     };
 
@@ -1086,53 +1038,60 @@ document.addEventListener("DOMContentLoaded", () => {
       tablaWrapper.classList.remove("dragging");
     };
 
-    on(tablaWrapper, "pointerdown", onDown, { passive: false });
-    on(tablaWrapper, "pointermove", onMove, { passive: false });
-    on(tablaWrapper, "pointerup", onUp);
-    on(tablaWrapper, "pointercancel", onUp);
-    on(tablaWrapper, "pointerleave", onUp);
+    tablaWrapper.addEventListener("pointerdown", onDown, { passive: false });
+    tablaWrapper.addEventListener("pointermove", onMove, { passive: false });
+    tablaWrapper.addEventListener("pointerup", onUp);
+    tablaWrapper.addEventListener("pointercancel", onUp);
+    tablaWrapper.addEventListener("pointerleave", onUp);
 
-    on(tablaWrapper, "dragstart", (e) => e.preventDefault());
+    tablaWrapper.addEventListener("dragstart", (e) => e.preventDefault());
   }
 
-  // =========================
   // ====== LOGOUT ======
-  // =========================
   function initLogout() {
     if (!btnLogout || !logoutModal || !logoutCancel || !logoutConfirm) return;
 
-    on(btnLogout, "click", () => logoutModal.classList.remove("hidden"));
-    on(logoutCancel, "click", () => logoutModal.classList.add("hidden"));
-    on(logoutConfirm, "click", () => (window.location.href = "/"));
+    btnLogout.addEventListener("click", () => {
+      logoutModal.classList.remove("hidden");
+    });
 
-    on(logoutModal, "click", (e) => {
+    logoutCancel.addEventListener("click", () => {
+      logoutModal.classList.add("hidden");
+    });
+
+    logoutConfirm.addEventListener("click", () => {
+      window.location.href = "/";
+    });
+
+    logoutModal.addEventListener("click", (e) => {
       if (e.target === logoutModal) logoutModal.classList.add("hidden");
     });
   }
 
-  // =========================
-  // ====== INIT LISTENERS
-  // =========================
+  // ====== INIT LISTENERS ======
   function initTabs() {
-    on(btnIngresoTab, "click", () => {
-      vistaActual = "ingreso";
-      setTabStyles();
-      pageIndex = 1;
-      aplicarFiltrosYRender();
-    });
-
-    on(btnSalidaTab, "click", () => {
-      vistaActual = "salida";
-      setTabStyles();
-      pageIndex = 1;
-      aplicarFiltrosYRender();
-    });
+    if (btnIngresoTab) {
+      btnIngresoTab.addEventListener("click", () => {
+        vistaActual = "ingreso";
+        setTabStyles();
+        pageIndex = 1;
+        aplicarFiltrosYRender();
+      });
+    }
+    if (btnSalidaTab) {
+      btnSalidaTab.addEventListener("click", () => {
+        vistaActual = "salida";
+        setTabStyles();
+        pageIndex = 1;
+        aplicarFiltrosYRender();
+      });
+    }
   }
 
   function initActions() {
-    on(btnActualizar, "click", cargarDatos);
-    on(btnExportarVista, "click", exportarVistaActual);
-    on(btnExportarTodo, "click", exportarTodo);
+    if (btnActualizar) btnActualizar.addEventListener("click", cargarDatos);
+    if (btnExportarVista) btnExportarVista.addEventListener("click", exportarVistaActual);
+    if (btnExportarTodo) btnExportarTodo.addEventListener("click", exportarTodo);
   }
 
   function initPager() {
@@ -1143,15 +1102,15 @@ document.addEventListener("DOMContentLoaded", () => {
       aplicarFiltrosYRender();
     };
 
-    on(pageSize100Top, "click", () => setSize(100));
-    on(pageSize200Top, "click", () => setSize(200));
-    on(pageSize300Top, "click", () => setSize(300));
-    on(pageSizeAllTop, "click", () => setSize(Infinity));
+    if (pageSize100Top) pageSize100Top.addEventListener("click", () => setSize(100));
+    if (pageSize200Top) pageSize200Top.addEventListener("click", () => setSize(200));
+    if (pageSize300Top) pageSize300Top.addEventListener("click", () => setSize(300));
+    if (pageSizeAllTop) pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
 
-    on(pageSize100Bottom, "click", () => setSize(100));
-    on(pageSize200Bottom, "click", () => setSize(200));
-    on(pageSize300Bottom, "click", () => setSize(300));
-    on(pageSizeAllBottom, "click", () => setSize(Infinity));
+    if (pageSize100Bottom) pageSize100Bottom.addEventListener("click", () => setSize(100));
+    if (pageSize200Bottom) pageSize200Bottom.addEventListener("click", () => setSize(200));
+    if (pageSize300Bottom) pageSize300Bottom.addEventListener("click", () => setSize(300));
+    if (pageSizeAllBottom) pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
 
     const prev = () => {
       pageIndex = Math.max(1, pageIndex - 1);
@@ -1162,33 +1121,45 @@ document.addEventListener("DOMContentLoaded", () => {
       aplicarFiltrosYRender();
     };
 
-    on(pagePrevTop, "click", prev);
-    on(pagePrevBottom, "click", prev);
-    on(pageNextTop, "click", next);
-    on(pageNextBottom, "click", next);
+    if (pagePrevTop) pagePrevTop.addEventListener("click", prev);
+    if (pagePrevBottom) pagePrevBottom.addEventListener("click", prev);
+    if (pageNextTop) pageNextTop.addEventListener("click", next);
+    if (pageNextBottom) pageNextBottom.addEventListener("click", next);
   }
 
   function initDateNav() {
     const onChangeTop = () => applyDateChange(dateFromTop?.value || "", dateToTop?.value || "");
-    const onChangeBottom = () => applyDateChange(dateFromBottom?.value || "", dateToBottom?.value || "");
+    const onChangeBottom = () =>
+      applyDateChange(dateFromBottom?.value || "", dateToBottom?.value || "");
 
-    on(dateFromTop, "change", onChangeTop);
-    on(dateToTop, "change", onChangeTop);
-    on(dateFromBottom, "change", onChangeBottom);
-    on(dateToBottom, "change", onChangeBottom);
+    if (dateFromTop) dateFromTop.addEventListener("change", onChangeTop);
+    if (dateToTop) dateToTop.addEventListener("change", onChangeTop);
+    if (dateFromBottom) dateFromBottom.addEventListener("change", onChangeBottom);
+    if (dateToBottom) dateToBottom.addEventListener("change", onChangeBottom);
 
-    on(rangeClearTop, "click", () => applyDateChange("", ""));
-    on(rangeClearBottom, "click", () => applyDateChange("", ""));
+    if (rangeClearTop) rangeClearTop.addEventListener("click", () => applyDateChange("", ""));
+    if (rangeClearBottom) rangeClearBottom.addEventListener("click", () => applyDateChange("", ""));
 
-    on(rangePrevTop, "click", () => moveDateRange(-1));
-    on(rangePrevBottom, "click", () => moveDateRange(-1));
-    on(rangeNextTop, "click", () => moveDateRange(1));
-    on(rangeNextBottom, "click", () => moveDateRange(1));
+    if (rangePrevTop) rangePrevTop.addEventListener("click", () => moveDateRange(-1));
+    if (rangePrevBottom) rangePrevBottom.addEventListener("click", () => moveDateRange(-1));
+    if (rangeNextTop) rangeNextTop.addEventListener("click", () => moveDateRange(1));
+    if (rangeNextBottom) rangeNextBottom.addEventListener("click", () => moveDateRange(1));
   }
 
-  // =========================
+  function initFab() {
+    if (fabTop) {
+      fabTop.addEventListener("click", () => {
+        (pageTop || document.documentElement).scrollIntoView({ behavior: "smooth" });
+      });
+    }
+    if (fabBottom) {
+      fabBottom.addEventListener("click", () => {
+        (pageBottom || document.documentElement).scrollIntoView({ behavior: "smooth" });
+      });
+    }
+  }
+
   // ====== INIT ======
-  // =========================
   setTabStyles();
   setPageSizeStyles();
 
@@ -1198,6 +1169,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initDateNav();
   initDragScroll();
   initLogout();
+  initFab();
 
   cargarDatos();
 });
