@@ -1,9 +1,24 @@
 <!DOCTYPE html>
-<html lang="es" class="light">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <title>Histórico - Módulo Ganados</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ✅ Forzar siempre dark -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <script>
+      (function () {
+        const root = document.documentElement;
+        const forceDark = () => {
+          if (!root.classList.contains("dark")) root.classList.add("dark");
+        };
+        forceDark();
+        const obs = new MutationObserver(forceDark);
+        obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+      })();
+    </script>
 
     <link rel="manifest" href="./g-manifest.webmanifest" />
     <meta name="theme-color" content="#5048e5" />
@@ -25,7 +40,6 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
-    <!-- Theme Config -->
     <script>
       tailwind.config = {
         darkMode: "class",
@@ -33,11 +47,10 @@
           extend: {
             colors: {
               primary: "#5048e5",
-              "background-light": "#f6f6f8",
               "background-dark": "#121121",
-              "surface-light": "#ffffff",
               "surface-dark": "#1e1d2b",
               "surface-dark-2": "#252433",
+              "border-dark": "#2f2e3d",
             },
             fontFamily: {
               display: ["Inter", "sans-serif"],
@@ -57,6 +70,7 @@
       body {
         font-family: "Inter", sans-serif;
       }
+
       /* Scrollbar suave */
       ::-webkit-scrollbar {
         width: 8px;
@@ -66,11 +80,11 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
+        background: #3b3a4a;
         border-radius: 999px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: #4b4a5c;
       }
 
       /* Cursor “arrastrar” para scroll horizontal */
@@ -81,40 +95,44 @@
         cursor: grabbing;
       }
 
-      /* ✅ FIX KPIs: no partir números por puntos */
+      /* ✅ FIX números: no partir, sin "...", si no caben -> scroll interno */
       .kpi-value {
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
       }
+      .kpi-value::-webkit-scrollbar {
+        display: none;
+      }
+
       .kpi-number {
         font-variant-numeric: tabular-nums;
       }
     </style>
   </head>
 
-  <body
-    class="bg-background-light dark:bg-background-dark text-[#121117] dark:text-white font-display min-h-screen"
-  >
+  <body class="bg-background-dark text-white font-display min-h-screen">
     <div id="page-top" class="min-h-screen flex flex-col">
-      <!-- Header -->
+      <!-- HEADER -->
       <header
-        class="sticky top-0 z-40 border-b border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-[#1a1926]/90 backdrop-blur px-4 md:px-10 py-3"
+        class="sticky top-0 z-40 border-b border-border-dark bg-[#151424]/90 backdrop-blur px-4 md:px-10 py-3"
       >
         <div class="w-full flex items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 min-w-0">
             <div
-              class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
+              class="size-10 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0"
             >
               <span class="material-symbols-outlined text-[26px]"
                 >agriculture</span
               >
             </div>
-            <div class="leading-tight">
+            <div class="leading-tight min-w-0">
               <h1 class="text-base md:text-lg font-extrabold tracking-tight">
                 Módulo Ganados
               </h1>
-              <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+              <p class="text-xs md:text-sm text-gray-300/70">
                 Histórico (Ingresos / Salidas)
               </p>
             </div>
@@ -123,10 +141,10 @@
           <button
             id="btn-logout"
             type="button"
-            class="flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            class="flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10 transition shrink-0"
           >
             <span
-              class="inline-flex items-center justify-center size-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300"
+              class="inline-flex items-center justify-center size-8 rounded-full bg-rose-500/15 text-rose-200"
             >
               <span class="material-symbols-outlined text-[18px]">logout</span>
             </span>
@@ -135,40 +153,40 @@
         </div>
       </header>
 
-      <!-- Main -->
+      <!-- MAIN -->
       <main class="flex-1 px-4 md:px-10 lg:px-20 py-8">
         <div class="w-full flex flex-col gap-6">
-          <!-- Page header -->
+          <!-- TÍTULO -->
           <section class="flex flex-col gap-2">
             <h2
               class="text-3xl md:text-4xl font-black leading-tight tracking-[-0.03em]"
             >
               Histórico
             </h2>
-            <p class="text-gray-600 dark:text-gray-400">
+            <p class="text-gray-300/70">
               Control y análisis de movimientos: totales, promedios, selección y
               exportación.
             </p>
           </section>
 
-          <!-- Acciones rápidas -->
+          <!-- ACCIONES RÁPIDAS -->
           <section
-            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
           >
             <div
               class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
             >
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 min-w-0">
                 <span
-                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/15 text-primary shrink-0"
                 >
                   <span class="material-symbols-outlined text-[22px]"
                     >bolt</span
                   >
                 </span>
-                <div>
+                <div class="min-w-0">
                   <p class="font-bold">Acciones rápidas</p>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                  <p class="text-xs text-gray-300/70">
                     Accede rápido a los flujos principales
                   </p>
                 </div>
@@ -213,116 +231,103 @@
 
           <!-- TOTALES -->
           <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <!-- pequeñas (<=4 dígitos) -->
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Registros (contexto)
               </p>
               <p
                 id="total-general"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.6rem,3.2vw,2.25rem)]"
-                title="0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.35rem,2.8vw,1.9rem)]"
               >
                 0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Ingresos
-              </p>
+              <p class="text-xs font-semibold text-gray-300/70">Ingresos</p>
               <p
                 id="total-ingresos"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-emerald-600 text-[clamp(1.6rem,3.2vw,2.25rem)]"
-                title="0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-emerald-400 text-[clamp(1.35rem,2.8vw,1.9rem)]"
               >
                 0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Salidas
-              </p>
+              <p class="text-xs font-semibold text-gray-300/70">Salidas</p>
               <p
                 id="total-salidas"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-rose-500 text-[clamp(1.6rem,3.2vw,2.25rem)]"
-                title="0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-rose-400 text-[clamp(1.35rem,2.8vw,1.9rem)]"
               >
                 0
               </p>
             </div>
 
+            <!-- grandes (moneda) -->
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Total ingreso
-              </p>
+              <p class="text-xs font-semibold text-gray-300/70">Total ingreso</p>
               <p
                 id="total-valor-ingreso"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-primary text-[clamp(1.15rem,4.6vw,2.15rem)]"
-                title="$0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-primary text-[clamp(1.05rem,3.6vw,2.05rem)]"
               >
                 $0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Total salida
-              </p>
+              <p class="text-xs font-semibold text-gray-300/70">Total salida</p>
               <p
                 id="total-valor-salida"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-fuchsia-600 text-[clamp(1.15rem,4.6vw,2.15rem)]"
-                title="$0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-fuchsia-400 text-[clamp(1.05rem,3.6vw,2.05rem)]"
               >
                 $0
               </p>
             </div>
           </section>
 
-          <!-- ✅ NUEVAS ESTADÍSTICAS DE UTILIDAD -->
+          <!-- UTILIDAD -->
           <section class="grid gap-4 md:grid-cols-2">
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Utilidad total (salidas)
               </p>
               <p
                 id="total-utilidad"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.15rem,4.6vw,2.15rem)]"
-                title="$0"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.05rem,3.6vw,2.05rem)]"
               >
                 $0
               </p>
-              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-2 text-xs text-gray-300/70">
                 Suma de (total salida − total ingreso) para registros con salida.
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 % utilidad (margen)
               </p>
               <p
                 id="total-utilidad-pct"
-                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.15rem,4.6vw,2.15rem)]"
-                title="-"
+                class="mt-2 font-black tracking-tight leading-none kpi-value kpi-number text-[clamp(1.05rem,3.6vw,2.05rem)]"
               >
                 -
               </p>
-              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-2 text-xs text-gray-300/70">
                 (utilidad total ÷ total ingreso de salidas) × 100
               </p>
             </div>
@@ -331,32 +336,32 @@
           <!-- ESTADÍSTICAS -->
           <section class="grid gap-4 md:grid-cols-3">
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Peso promedio ingreso
               </p>
               <p id="stat-peso-ing" class="mt-2 text-2xl font-bold">-</p>
             </div>
 
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Peso promedio salida
               </p>
               <p id="stat-peso-sal" class="mt-2 text-2xl font-bold">-</p>
             </div>
 
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Ganancia promedio de peso
               </p>
               <p
                 id="stat-peso-ganancia"
-                class="mt-2 text-2xl font-bold text-emerald-600"
+                class="mt-2 text-2xl font-bold text-emerald-400"
               >
                 -
               </p>
@@ -365,9 +370,9 @@
 
           <section class="grid gap-4 md:grid-cols-3">
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Valor promedio ingreso
               </p>
               <p
@@ -379,45 +384,44 @@
             </div>
 
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Valor promedio salida
               </p>
               <p
                 id="stat-valor-sal"
-                class="mt-2 text-2xl font-bold text-fuchsia-500"
+                class="mt-2 text-2xl font-bold text-fuchsia-400"
               >
                 -
               </p>
             </div>
 
             <div
-              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+              class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-5"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p class="text-xs font-semibold text-gray-300/70">
                 Predicción simple
               </p>
               <p
                 id="stat-prediccion"
-                class="mt-2 text-sm md:text-base text-gray-700 dark:text-gray-200 leading-relaxed"
+                class="mt-2 text-sm md:text-base text-gray-100/90 leading-relaxed"
               >
                 -
               </p>
             </div>
           </section>
 
-          <!-- Barra de acciones -->
+          <!-- BARRA ACCIONES -->
           <section
-            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
           >
             <div
               class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
             >
-              <!-- Tabs -->
               <div class="flex items-center gap-3">
                 <div
-                  class="inline-flex rounded-full overflow-hidden bg-gray-100 dark:bg-[#2c2b3b] p-1 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
+                  class="inline-flex rounded-full overflow-hidden bg-white/5 p-1 ring-1 ring-inset ring-white/10"
                 >
                   <button
                     id="btn-ingreso"
@@ -437,18 +441,17 @@
 
                 <p
                   id="selection-info"
-                  class="text-xs text-gray-500 dark:text-gray-400 hidden md:block"
+                  class="text-xs text-gray-300/70 hidden md:block"
                 >
                   Totales basados en todos los registros filtrados.
                 </p>
               </div>
 
-              <!-- Acciones -->
               <div class="flex flex-wrap items-center gap-2">
                 <button
                   id="btn-actualizar"
                   type="button"
-                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
                 >
                   <span class="material-symbols-outlined text-[18px]"
                     >refresh</span
@@ -459,7 +462,7 @@
                 <button
                   id="btn-exportar-todo"
                   type="button"
-                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-primary shadow-sm ring-1 ring-inset ring-primary/20 hover:bg-primary/5 transition"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-primary shadow-sm ring-1 ring-inset ring-primary/25 hover:bg-primary/10 transition"
                 >
                   <span class="material-symbols-outlined text-[18px]"
                     >download</span
@@ -481,95 +484,305 @@
 
               <p
                 id="selection-info-mobile"
-                class="text-xs text-gray-500 dark:text-gray-400 md:hidden"
+                class="text-xs text-gray-300/70 md:hidden"
               >
                 Totales basados en todos los registros filtrados.
               </p>
             </div>
           </section>
 
-          <!-- NAV FECHAS (TOP) -->
+          <!-- FECHAS TOP -->
           <section
-            id="date-nav-top"
-            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
           >
-            <!-- ... (sin cambios) ... -->
-            <!-- DEJA TU CONTENIDO TAL CUAL LO TENÍAS -->
-            <!-- (lo omití aquí para no duplicar 200 líneas) -->
+            <div class="flex flex-col md:flex-row md:items-end gap-3">
+              <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-semibold text-gray-300/70"
+                    >Desde</label
+                  >
+                  <input
+                    id="date-from-top"
+                    type="date"
+                    class="w-full rounded-full bg-white/5 ring-1 ring-inset ring-white/10 border-0 px-4 py-2 text-sm text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-semibold text-gray-300/70"
+                    >Hasta</label
+                  >
+                  <input
+                    id="date-to-top"
+                    type="date"
+                    class="w-full rounded-full bg-white/5 ring-1 ring-inset ring-white/10 border-0 px-4 py-2 text-sm text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2 justify-end">
+                <button
+                  id="range-prev-top"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >chevron_left</span
+                  >
+                  Anterior
+                </button>
+
+                <button
+                  id="range-next-top"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  Siguiente
+                  <span class="material-symbols-outlined text-[18px]"
+                    >chevron_right</span
+                  >
+                </button>
+
+                <button
+                  id="range-clear-top"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-rose-500/15 text-rose-200 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-rose-400/25 hover:bg-rose-500/20 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]">close</span>
+                  Limpiar
+                </button>
+              </div>
+            </div>
           </section>
 
-          <!-- PAGINACIÓN (TOP) -->
+          <!-- PAGER TOP -->
           <section
-            id="pager-top"
-            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
           >
-            <!-- ... (sin cambios) ... -->
+            <div
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+            >
+              <div class="flex items-center gap-2">
+                <button
+                  id="page-prev-top"
+                  type="button"
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <button
+                  id="page-next-top"
+                  type="button"
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+
+                <span id="page-info-top" class="text-sm text-gray-300/80 ml-2">
+                  Mostrando 0–0 de 0
+                </span>
+              </div>
+
+              <div class="flex flex-wrap gap-2 justify-end">
+                <button
+                  id="page-size-100-top"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  100
+                </button>
+                <button
+                  id="page-size-200-top"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  200
+                </button>
+                <button
+                  id="page-size-300-top"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  300
+                </button>
+                <button
+                  id="page-size-all-top"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  Todos
+                </button>
+              </div>
+            </div>
           </section>
 
-          <!-- TABLA -->
-          <section class="relative w-full -mx-4 md:-mx-10 lg:-mx-20">
-            <div class="px-4 md:px-10 lg:px-20">
-              <div
-                id="tabla-wrapper"
-                class="drag-scroll overflow-x-auto bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200/70 dark:border-gray-800"
-                title="Arrastra horizontalmente con click sostenido"
+          <!-- ✅ TABLA (SIN -mx, para que NO se recorte a la izquierda) -->
+          <section class="w-full">
+            <div
+              id="tabla-wrapper"
+              class="drag-scroll overflow-x-auto bg-surface-dark rounded-xl shadow-sm border border-border-dark"
+              title="Arrastra horizontalmente con click sostenido"
+            >
+              <table
+                class="min-w-[1400px] w-full text-sm md:text-base divide-y divide-white/10"
               >
-                <table
-                  id="tabla"
-                  class="min-w-[1400px] w-full text-sm md:text-base divide-y divide-gray-200 dark:divide-gray-800"
-                >
-                  <thead id="tabla-head"></thead>
-                  <tbody
-                    id="tabla-body"
-                    class="divide-y divide-gray-100 dark:divide-gray-800"
-                  ></tbody>
-                </table>
+                <thead id="tabla-head"></thead>
+                <tbody id="tabla-body" class="divide-y divide-white/5"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- FECHAS BOTTOM -->
+          <section
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
+          >
+            <div class="flex flex-col md:flex-row md:items-end gap-3">
+              <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-semibold text-gray-300/70"
+                    >Desde</label
+                  >
+                  <input
+                    id="date-from-bottom"
+                    type="date"
+                    class="w-full rounded-full bg-white/5 ring-1 ring-inset ring-white/10 border-0 px-4 py-2 text-sm text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs font-semibold text-gray-300/70"
+                    >Hasta</label
+                  >
+                  <input
+                    id="date-to-bottom"
+                    type="date"
+                    class="w-full rounded-full bg-white/5 ring-1 ring-inset ring-white/10 border-0 px-4 py-2 text-sm text-white focus:ring-2 focus:ring-primary"
+                  />
+                </div>
               </div>
 
-              <!-- NAV FECHAS (BOTTOM) -->
-              <div class="mt-4">
-                <section
-                  id="date-nav-bottom"
-                  class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+              <div class="flex flex-wrap gap-2 justify-end">
+                <button
+                  id="range-prev-bottom"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
                 >
-                  <!-- ... (sin cambios) ... -->
-                </section>
+                  <span class="material-symbols-outlined text-[18px]"
+                    >chevron_left</span
+                  >
+                  Anterior
+                </button>
+
+                <button
+                  id="range-next-bottom"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  Siguiente
+                  <span class="material-symbols-outlined text-[18px]"
+                    >chevron_right</span
+                  >
+                </button>
+
+                <button
+                  id="range-clear-bottom"
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full bg-rose-500/15 text-rose-200 px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-rose-400/25 hover:bg-rose-500/20 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >close</span
+                  >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- PAGER BOTTOM -->
+          <section
+            class="bg-surface-dark rounded-xl border border-border-dark shadow-sm p-4"
+            id="page-bottom"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+            >
+              <div class="flex items-center gap-2">
+                <button
+                  id="page-prev-bottom"
+                  type="button"
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <button
+                  id="page-next-bottom"
+                  type="button"
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 hover:bg-white/10 transition"
+                >
+                  <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+
+                <span
+                  id="page-info-bottom"
+                  class="text-sm text-gray-300/80 ml-2"
+                >
+                  Mostrando 0–0 de 0
+                </span>
               </div>
 
-              <!-- PAGINACIÓN (BOTTOM) -->
-              <div class="mt-4">
-                <section
-                  id="pager-bottom"
-                  class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+              <div class="flex flex-wrap gap-2 justify-end">
+                <button
+                  id="page-size-100-bottom"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
                 >
-                  <!-- ... (sin cambios) ... -->
-                </section>
+                  100
+                </button>
+                <button
+                  id="page-size-200-bottom"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  200
+                </button>
+                <button
+                  id="page-size-300-bottom"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  300
+                </button>
+                <button
+                  id="page-size-all-bottom"
+                  type="button"
+                  class="px-4 py-2 rounded-full bg-white/5 ring-1 ring-inset ring-white/10 text-sm font-semibold hover:bg-white/10 transition"
+                >
+                  Todos
+                </button>
               </div>
-
-              <div id="page-bottom" class="h-2"></div>
             </div>
           </section>
         </div>
       </main>
     </div>
 
-    <!-- MODAL CERRAR SESIÓN -->
+    <!-- MODAL LOGOUT -->
     <div
       id="logout-modal"
       class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4 border border-gray-200/70 dark:border-gray-800"
+        class="bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4 border border-border-dark"
       >
         <div class="flex items-center gap-3">
           <div
-            class="size-10 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 flex items-center justify-center"
+            class="size-10 rounded-full bg-rose-500/15 text-rose-200 flex items-center justify-center"
           >
             <span class="material-symbols-outlined">logout</span>
           </div>
           <div>
             <h3 class="text-lg font-extrabold">¿Cerrar sesión?</h3>
-            <p class="text-sm text-gray-600 dark:text-gray-300">
+            <p class="text-sm text-gray-300/80">
               Se cerrará tu sesión actual y volverás al inicio de sesión.
             </p>
           </div>
@@ -579,7 +792,7 @@
           <button
             id="logout-cancel"
             type="button"
-            class="px-4 py-2 text-sm rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2c2b3b] hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            class="px-4 py-2 text-sm rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition"
           >
             Cancelar
           </button>
@@ -594,7 +807,7 @@
       </div>
     </div>
 
-    <!-- XLSX para exportar -->
+    <!-- XLSX -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <script src="./dashboard.js" defer></script>
