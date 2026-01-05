@@ -7,6 +7,9 @@
 
     <link rel="manifest" href="./g-manifest.webmanifest" />
     <meta name="theme-color" content="#5048e5" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="./tw-config.js"></script>
+    <script src="./theme.js" defer></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -87,7 +90,9 @@
             <div
               class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
             >
-              <span class="material-symbols-outlined text-[26px]">edit_note</span>
+              <span class="material-symbols-outlined text-[26px]"
+                >edit_note</span
+              >
             </div>
             <div class="leading-tight">
               <h1 class="text-base md:text-lg font-extrabold tracking-tight">
@@ -134,12 +139,29 @@
               <span
                 class="inline-flex items-center justify-center size-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300"
               >
-                <span class="material-symbols-outlined text-[18px]">logout</span>
+                <span class="material-symbols-outlined text-[18px]"
+                  >logout</span
+                >
               </span>
               <span class="hidden sm:inline">Cerrar sesión</span>
             </button>
           </div>
         </div>
+        <button
+          id="btn-theme"
+          type="button"
+          class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          title="Cambiar tema"
+        >
+          <span
+            class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary"
+          >
+            <span id="theme-icon" class="material-symbols-outlined text-[18px]"
+              >dark_mode</span
+            >
+          </span>
+          <span id="theme-label" class="hidden sm:inline">Oscuro</span>
+        </button>
       </header>
 
       <main class="flex-1 px-4 md:px-10 lg:px-20 py-8">
@@ -152,15 +174,19 @@
               <div
                 class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
               >
-                <span class="material-symbols-outlined text-[22px]">search</span>
+                <span class="material-symbols-outlined text-[22px]"
+                  >search</span
+                >
               </div>
               <div class="space-y-1">
                 <h2 class="text-lg md:text-2xl font-extrabold tracking-tight">
                   Buscar y modificar registros
                 </h2>
-                <p class="text-sm md:text-base text-gray-600 dark:text-gray-400">
-                  Busca por número. Modifica cualquier campo del registro y guarda.
-                  También puedes eliminar el registro.
+                <p
+                  class="text-sm md:text-base text-gray-600 dark:text-gray-400"
+                >
+                  Busca por número. Modifica cualquier campo del registro y
+                  guarda. También puedes eliminar el registro.
                 </p>
               </div>
             </div>
@@ -195,7 +221,9 @@
                   type="submit"
                   class="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
                 >
-                  <span class="material-symbols-outlined text-[18px]">search</span>
+                  <span class="material-symbols-outlined text-[18px]"
+                    >search</span
+                  >
                   Buscar
                 </button>
               </div>
@@ -205,7 +233,8 @@
               id="info-mod-encontrado"
               class="mt-3 text-xs md:text-sm text-gray-500 dark:text-gray-400"
             >
-              Ingresa el número y presiona <span class="font-semibold">Buscar</span>.
+              Ingresa el número y presiona
+              <span class="font-semibold">Buscar</span>.
             </p>
           </section>
 
@@ -255,7 +284,9 @@
                       >input</span
                     >
                   </span>
-                  <h3 class="text-base md:text-lg font-extrabold tracking-tight">
+                  <h3
+                    class="text-base md:text-lg font-extrabold tracking-tight"
+                  >
                     Datos de ingreso
                   </h3>
                 </div>
@@ -481,7 +512,9 @@
                       >output</span
                     >
                   </span>
-                  <h3 class="text-base md:text-lg font-extrabold tracking-tight">
+                  <h3
+                    class="text-base md:text-lg font-extrabold tracking-tight"
+                  >
                     Datos de salida
                   </h3>
                 </div>
@@ -561,7 +594,9 @@
                   id="btn-eliminar-registro"
                   class="inline-flex items-center justify-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-rose-700 transition"
                 >
-                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                  <span class="material-symbols-outlined text-[18px]"
+                    >delete</span
+                  >
                   Eliminar registro
                 </button>
 
@@ -582,7 +617,9 @@
                     id="btn-guardar-cambios"
                     class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
                   >
-                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    <span class="material-symbols-outlined text-[18px]"
+                      >save</span
+                    >
                     Guardar cambios
                   </button>
                 </div>
@@ -609,7 +646,10 @@
           ></div>
           <div>
             <p id="loading-title" class="font-extrabold">Procesando…</p>
-            <p id="loading-subtitle" class="text-sm text-gray-600 dark:text-gray-400">
+            <p
+              id="loading-subtitle"
+              class="text-sm text-gray-600 dark:text-gray-400"
+            >
               Un momento por favor.
             </p>
           </div>
@@ -635,7 +675,10 @@
             <h3 id="success-title" class="text-lg font-extrabold">
               Cambios guardados
             </h3>
-            <p id="success-message" class="text-sm text-gray-600 dark:text-gray-300">
+            <p
+              id="success-message"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
               El registro fue actualizado correctamente.
             </p>
           </div>
@@ -670,7 +713,10 @@
           </div>
           <div class="space-y-1">
             <h3 class="text-lg font-extrabold text-rose-600">Error</h3>
-            <p id="error-message" class="text-sm text-gray-600 dark:text-gray-300">
+            <p
+              id="error-message"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
               Ocurrió un error al procesar la solicitud.
             </p>
           </div>
@@ -705,7 +751,10 @@
           </div>
           <div class="space-y-1">
             <h3 class="text-lg font-extrabold text-amber-600">Advertencia</h3>
-            <p id="warning-message" class="text-sm text-gray-600 dark:text-gray-300">
+            <p
+              id="warning-message"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
               Revisa los datos antes de guardar.
             </p>
           </div>
@@ -787,7 +836,8 @@
               ¿Eliminar registro?
             </h3>
             <p class="text-sm text-gray-600 dark:text-gray-300">
-              Esta acción borra definitivamente el registro. No se puede deshacer.
+              Esta acción borra definitivamente el registro. No se puede
+              deshacer.
             </p>
           </div>
         </div>

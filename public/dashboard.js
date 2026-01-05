@@ -1,5 +1,14 @@
 // public/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
+  // ====== HELPERS ======
+  const on = (el, ev, fn, opts) => {
+    if (!el) return;
+    el.addEventListener(ev, fn, opts);
+  };
+
+  const show = (el) => el && el.classList.remove("hidden");
+  const hide = (el) => el && el.classList.add("hidden");
+
   // ====== DOM BÁSICO ======
   const tablaHead = document.getElementById("tabla-head");
   const tablaBody = document.getElementById("tabla-body");
@@ -11,7 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const totalValorIngresoEl = document.getElementById("total-valor-ingreso");
   const totalValorSalidaEl = document.getElementById("total-valor-salida");
 
-  // ✅ Utilidad
   const totalUtilidadEl = document.getElementById("total-utilidad");
   const totalUtilidadPctEl = document.getElementById("total-utilidad-pct");
 
@@ -76,42 +84,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoutCancel = document.getElementById("logout-cancel");
   const logoutConfirm = document.getElementById("logout-confirm");
 
-  // ====== HELPERS UI ======
-  function setText(el, text) {
-    if (!el) return;
-    el.textContent = text;
-    el.title = text; // ✅ para ver el valor completo
-  }
-
-  async function copyToClipboard(text) {
-    const value = (text ?? "").toString();
-    if (!value) return false;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(value);
-        return true;
-      }
-    } catch (_) {}
-
-    // fallback
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = value;
-      ta.style.position = "fixed";
-      ta.style.left = "-9999px";
-      ta.style.top = "-9999px";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      return ok;
-    } catch (_) {
-      return false;
-    }
-  }
-
   // ====== ESTADO ======
   let registros = [];
   let vistaActual = "ingreso"; // 'ingreso' | 'salida'
@@ -125,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let pageIndex = 1; // 1..n (si Todos => 1)
   let totalRowsAfterFilters = 0;
 
-  // Fechas (estado interno)
+  // Fechas
   let dateFrom = "";
   let dateTo = "";
 
@@ -173,11 +145,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ====== UTILIDADES ======
   function formatMoney(value) {
     const num = Number(value) || 0;
-    return num.toLocaleString("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    });
+    // ⚠️ toLocaleString mete NBSP entre $ y número -> lo cambiamos por espacio normal
+    return num
+      .toLocaleString("es-CO", {
+        style: "currency",
+        currency: "COP",
+        maximumFractionDigits: 0,
+      })
+      .replace(/\u00A0/g, " ");
   }
 
   function formatNumber(value) {
@@ -279,6 +254,31 @@ document.addEventListener("DOMContentLoaded", () => {
     return value;
   }
 
+  async function copyToClipboard(text) {
+    const value = (text ?? "").toString();
+    if (!value) return;
+
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (_) {
+      // fallback
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = value;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+  }
+
   function setTabStyles() {
     const active = ["bg-primary", "text-white", "shadow"];
     const inactive = ["bg-transparent", "text-gray-600", "dark:text-gray-300"];
@@ -345,15 +345,16 @@ document.addEventListener("DOMContentLoaded", () => {
     tablaHead.innerHTML = "";
 
     const trHeader = document.createElement("tr");
-    trHeader.className =
-      "bg-gray-50 dark:bg-[#252433] text-gray-700 dark:text-gray-200";
+    trHeader.className = "bg-gray-50 dark:bg-surface-dark-2 text-gray-700 dark:text-gray-200";
 
+    // Columna #
     const thIndex = document.createElement("th");
     thIndex.className =
       "px-3 py-3 text-left align-bottom whitespace-nowrap text-xs md:text-sm font-extrabold uppercase tracking-wider";
     thIndex.textContent = "#";
     trHeader.appendChild(thIndex);
 
+    // Checkbox header
     const thCheck = document.createElement("th");
     thCheck.className = "px-3 py-3 text-center align-bottom";
     const headerCheckbox = document.createElement("input");
@@ -361,9 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
     headerCheckbox.id = "select-all-checkbox";
     headerCheckbox.className =
       "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
-    headerCheckbox.addEventListener("change", () => {
-      handleSelectAll(headerCheckbox.checked);
-    });
+    on(headerCheckbox, "change", () => handleSelectAll(headerCheckbox.checked));
     thCheck.appendChild(headerCheckbox);
     trHeader.appendChild(thCheck);
 
@@ -375,8 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.dataset.sortKey = col.key;
-      btn.className =
-        "flex items-center gap-1 hover:text-primary transition-colors";
+      btn.className = "flex items-center gap-1 hover:text-primary transition-colors";
 
       const spanLabel = document.createElement("span");
       spanLabel.textContent = col.label;
@@ -394,6 +392,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tablaHead.appendChild(trHeader);
 
+    // Filtros
     const trFilters = document.createElement("tr");
     trFilters.className = "bg-white dark:bg-surface-dark";
 
@@ -417,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
       input.dataset.filter = col.key;
       input.value = filtros[col.key] || "";
 
-      input.addEventListener("input", () => {
+      on(input, "input", () => {
         filtros[col.key] = input.value.trim().toLowerCase();
         pageIndex = 1;
         aplicarFiltrosYRender();
@@ -429,8 +428,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tablaHead.appendChild(trFilters);
 
+    // Orden
     tablaHead.querySelectorAll("[data-sort-key]").forEach((btn) => {
-      btn.addEventListener("click", () => manejarOrden(btn.dataset.sortKey));
+      on(btn, "click", () => manejarOrden(btn.dataset.sortKey));
     });
   }
 
@@ -493,7 +493,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const b = parseISODate(dateTo);
     if (!a || !b) return;
 
-    const span = Math.max(0, Math.floor((b - a) / (1000 * 60 * 60 * 24)));
+    const span = Math.max(0, Math.floor((b - a) / 86400000));
     const stepDays = span + 1;
 
     const newFrom = new Date(a.getTime() + direction * stepDays * 86400000);
@@ -538,8 +538,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pageInfoBottom) pageInfoBottom.textContent = msg;
 
     const disablePrev = pageIndex <= 1 || total === 0 || pageSize === Infinity;
-    const disableNext =
-      pageIndex >= pages || total === 0 || pageSize === Infinity;
+    const disableNext = pageIndex >= pages || total === 0 || pageSize === Infinity;
 
     if (pagePrevTop) pagePrevTop.disabled = disablePrev;
     if (pagePrevBottom) pagePrevBottom.disabled = disablePrev;
@@ -631,11 +630,11 @@ document.addEventListener("DOMContentLoaded", () => {
       0
     );
 
-    setText(totalGeneralEl, String(total));
-    setText(totalIngresosEl, String(totalIngresos));
-    setText(totalSalidasEl, String(totalSalidas));
-    setText(totalValorIngresoEl, formatMoney(totalValorIngreso));
-    setText(totalValorSalidaEl, formatMoney(totalValorSalida));
+    if (totalGeneralEl) totalGeneralEl.textContent = total;
+    if (totalIngresosEl) totalIngresosEl.textContent = totalIngresos;
+    if (totalSalidasEl) totalSalidasEl.textContent = totalSalidas;
+    if (totalValorIngresoEl) totalValorIngresoEl.textContent = formatMoney(totalValorIngreso);
+    if (totalValorSalidaEl) totalValorSalidaEl.textContent = formatMoney(totalValorSalida);
 
     const totalIngresoDeSalidas = salidasContext.reduce(
       (acc, r) => acc + (rawValue(r, "totalIngreso") || 0),
@@ -647,14 +646,14 @@ document.addEventListener("DOMContentLoaded", () => {
       0
     );
 
-    setText(totalUtilidadEl, formatMoney(totalUtilidad));
+    if (totalUtilidadEl) totalUtilidadEl.textContent = formatMoney(totalUtilidad);
 
     if (totalUtilidadPctEl) {
       if (totalIngresoDeSalidas > 0) {
         const pct = (totalUtilidad / totalIngresoDeSalidas) * 100;
-        setText(totalUtilidadPctEl, `${pct.toFixed(2)}%`);
+        totalUtilidadPctEl.textContent = `${pct.toFixed(2)}%`;
       } else {
-        setText(totalUtilidadPctEl, "-");
+        totalUtilidadPctEl.textContent = "-";
       }
     }
 
@@ -719,16 +718,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const tr = document.createElement("tr");
       tr.className =
-        "bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-[#252433] transition-colors";
+        "bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-surface-dark-2 transition-colors";
       tr.dataset.numero = numero;
 
+      // #
       const tdIndex = document.createElement("td");
-      tdIndex.className =
-        "px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200";
+      tdIndex.className = "px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200";
       tdIndex.textContent =
         pageSize === Infinity ? idx + 1 : (pageIndex - 1) * pageSize + (idx + 1);
       tr.appendChild(tdIndex);
 
+      // checkbox
       const tdCheck = document.createElement("td");
       tdCheck.className = "px-3 py-2 text-center";
       const cb = document.createElement("input");
@@ -737,68 +737,59 @@ document.addEventListener("DOMContentLoaded", () => {
         "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
       cb.checked = isSelected;
       cb.dataset.numero = numero;
-      cb.addEventListener("click", (e) => {
+      on(cb, "click", (e) => {
         e.stopPropagation();
         handleCheckboxChange(numero, cb.checked);
       });
       tdCheck.appendChild(cb);
       tr.appendChild(tdCheck);
 
+      // data
       cols.forEach((col) => {
         const td = document.createElement("td");
-        td.className =
-          "px-3 py-2 whitespace-nowrap text-gray-800 dark:text-gray-200";
+        td.className = "px-3 py-2 whitespace-nowrap text-gray-800 dark:text-gray-200";
 
         const val = rawValue(row, col.key);
 
-        // ✅ Botón copiar al lado del Número
+        // ✅ Número con botón copiar
         if (col.key === "Numero") {
+          td.className = "px-3 py-2 whitespace-nowrap";
           const wrap = document.createElement("div");
           wrap.className = "flex items-center gap-2";
 
-          const span = document.createElement("span");
-          span.className = "font-semibold";
-          span.textContent = formatCell(col.key, val);
+          const strong = document.createElement("span");
+          strong.className = "font-extrabold text-gray-900 dark:text-white";
+          strong.textContent = formatCell(col.key, val);
 
           const btnCopy = document.createElement("button");
           btnCopy.type = "button";
           btnCopy.className =
             "inline-flex items-center justify-center size-8 rounded-full bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition";
           btnCopy.title = "Copiar número";
-          btnCopy.innerHTML =
-            '<span class="material-symbols-outlined text-[18px]">content_copy</span>';
 
-          btnCopy.addEventListener("click", async (e) => {
-            e.preventDefault();
+          const icon = document.createElement("span");
+          icon.className = "material-symbols-outlined text-[18px]";
+          icon.textContent = "content_copy";
+
+          btnCopy.appendChild(icon);
+
+          on(btnCopy, "click", async (e) => {
             e.stopPropagation();
             const ok = await copyToClipboard(numero);
-
-            const icon = btnCopy.querySelector(".material-symbols-outlined");
-            if (!icon) return;
-
             if (ok) {
-              icon.textContent = "done";
-              btnCopy.classList.add("ring-emerald-300");
-              setTimeout(() => {
-                icon.textContent = "content_copy";
-                btnCopy.classList.remove("ring-emerald-300");
-              }, 900);
-            } else {
-              icon.textContent = "error";
-              btnCopy.classList.add("ring-rose-300");
-              setTimeout(() => {
-                icon.textContent = "content_copy";
-                btnCopy.classList.remove("ring-rose-300");
-              }, 900);
+              icon.textContent = "check";
+              setTimeout(() => (icon.textContent = "content_copy"), 900);
             }
           });
 
-          wrap.appendChild(span);
+          wrap.appendChild(strong);
           wrap.appendChild(btnCopy);
           td.appendChild(wrap);
-        } else {
-          td.textContent = formatCell(col.key, val);
+          tr.appendChild(td);
+          return;
         }
+
+        td.textContent = formatCell(col.key, val);
 
         if (col.key === "utilidad") {
           const u = Number(val) || 0;
@@ -869,29 +860,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ====== ESTADÍSTICAS ======
   function actualizarEstadisticas(rows) {
-    if (
-      !rows ||
-      rows.length === 0 ||
-      !statPesoIngEl ||
-      !statPesoSalEl ||
-      !statPesoGananciaEl ||
-      !statValorIngEl ||
-      !statValorSalEl ||
-      !statPrediccionEl
-    ) {
-      if (statPesoIngEl) statPesoIngEl.textContent = "-";
-      if (statPesoSalEl) statPesoSalEl.textContent = "-";
-      if (statPesoGananciaEl) statPesoGananciaEl.textContent = "-";
-      if (statValorIngEl) statValorIngEl.textContent = "-";
-      if (statValorSalEl) statValorSalEl.textContent = "-";
-      if (statPrediccionEl) statPrediccionEl.textContent = "Sin datos suficientes para estimar.";
+    const safeSet = (el, txt) => el && (el.textContent = txt);
+
+    if (!rows || rows.length === 0) {
+      safeSet(statPesoIngEl, "-");
+      safeSet(statPesoSalEl, "-");
+      safeSet(statPesoGananciaEl, "-");
+      safeSet(statValorIngEl, "-");
+      safeSet(statValorSalEl, "-");
+      safeSet(statPrediccionEl, "Sin datos suficientes para estimar.");
       return;
     }
 
-    const pesosIng = rows
-      .map((r) => Number(r.Peso))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
+    const pesosIng = rows.map((r) => Number(r.Peso)).filter((v) => Number.isFinite(v) && v > 0);
     const pesosSal = rows
       .map((r) => Number(r.PesoSalida))
       .filter((v) => Number.isFinite(v) && v > 0);
@@ -923,20 +904,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const vIng = prom(valIng);
     const vSal = prom(valSal);
 
-    statPesoIngEl.textContent = pesosIng.length ? `${pIng.toFixed(1)} kg` : "-";
-    statPesoSalEl.textContent = pesosSal.length ? `${pSal.toFixed(1)} kg` : "-";
-    statPesoGananciaEl.textContent = paresGanancia.length ? `${gPeso.toFixed(1)} kg` : "-";
-
-    statValorIngEl.textContent = valIng.length ? formatMoney(vIng) : "-";
-    statValorSalEl.textContent = valSal.length ? formatMoney(vSal) : "-";
+    safeSet(statPesoIngEl, pesosIng.length ? `${pIng.toFixed(1)} kg` : "-");
+    safeSet(statPesoSalEl, pesosSal.length ? `${pSal.toFixed(1)} kg` : "-");
+    safeSet(statPesoGananciaEl, paresGanancia.length ? `${gPeso.toFixed(1)} kg` : "-");
+    safeSet(statValorIngEl, valIng.length ? formatMoney(vIng) : "-");
+    safeSet(statValorSalEl, valSal.length ? formatMoney(vSal) : "-");
 
     if (paresGanancia.length) {
-      statPrediccionEl.textContent = `Si se mantiene la ganancia promedio actual de ${gPeso.toFixed(
-        1
-      )} kg por animal, los próximos lotes podrían comportarse de forma similar (estimación basada en el histórico actual).`;
+      safeSet(
+        statPrediccionEl,
+        `Si se mantiene la ganancia promedio actual de ${gPeso.toFixed(
+          1
+        )} kg por animal, los próximos lotes podrían comportarse de forma similar (estimación basada en el histórico actual).`
+      );
     } else {
-      statPrediccionEl.textContent =
-        "Aún no hay suficientes registros con ingreso y salida para estimar una ganancia promedio de peso.";
+      safeSet(
+        statPrediccionEl,
+        "Aún no hay suficientes registros con ingreso y salida para estimar una ganancia promedio de peso."
+      );
     }
   }
 
@@ -1007,14 +992,10 @@ document.addEventListener("DOMContentLoaded", () => {
     let startX = 0;
     let scrollLeftStart = 0;
 
-    const shouldIgnoreTarget = (target) => {
-      if (!target) return false;
-      return !!target.closest("input,button,select,textarea,label,a");
-    };
+    const shouldIgnoreTarget = (target) => !!target?.closest("input,button,select,textarea,label,a");
 
     const onDown = (e) => {
       if (shouldIgnoreTarget(e.target)) return;
-
       isDown = true;
       tablaWrapper.classList.add("dragging");
       startX = e.clientX;
@@ -1038,60 +1019,48 @@ document.addEventListener("DOMContentLoaded", () => {
       tablaWrapper.classList.remove("dragging");
     };
 
-    tablaWrapper.addEventListener("pointerdown", onDown, { passive: false });
-    tablaWrapper.addEventListener("pointermove", onMove, { passive: false });
-    tablaWrapper.addEventListener("pointerup", onUp);
-    tablaWrapper.addEventListener("pointercancel", onUp);
-    tablaWrapper.addEventListener("pointerleave", onUp);
+    on(tablaWrapper, "pointerdown", onDown, { passive: false });
+    on(tablaWrapper, "pointermove", onMove, { passive: false });
+    on(tablaWrapper, "pointerup", onUp);
+    on(tablaWrapper, "pointercancel", onUp);
+    on(tablaWrapper, "pointerleave", onUp);
 
-    tablaWrapper.addEventListener("dragstart", (e) => e.preventDefault());
+    on(tablaWrapper, "dragstart", (e) => e.preventDefault());
   }
 
   // ====== LOGOUT ======
   function initLogout() {
     if (!btnLogout || !logoutModal || !logoutCancel || !logoutConfirm) return;
 
-    btnLogout.addEventListener("click", () => {
-      logoutModal.classList.remove("hidden");
-    });
-
-    logoutCancel.addEventListener("click", () => {
-      logoutModal.classList.add("hidden");
-    });
-
-    logoutConfirm.addEventListener("click", () => {
-      window.location.href = "/";
-    });
-
-    logoutModal.addEventListener("click", (e) => {
+    on(btnLogout, "click", () => logoutModal.classList.remove("hidden"));
+    on(logoutCancel, "click", () => logoutModal.classList.add("hidden"));
+    on(logoutConfirm, "click", () => (window.location.href = "/"));
+    on(logoutModal, "click", (e) => {
       if (e.target === logoutModal) logoutModal.classList.add("hidden");
     });
   }
 
   // ====== INIT LISTENERS ======
   function initTabs() {
-    if (btnIngresoTab) {
-      btnIngresoTab.addEventListener("click", () => {
-        vistaActual = "ingreso";
-        setTabStyles();
-        pageIndex = 1;
-        aplicarFiltrosYRender();
-      });
-    }
-    if (btnSalidaTab) {
-      btnSalidaTab.addEventListener("click", () => {
-        vistaActual = "salida";
-        setTabStyles();
-        pageIndex = 1;
-        aplicarFiltrosYRender();
-      });
-    }
+    on(btnIngresoTab, "click", () => {
+      vistaActual = "ingreso";
+      setTabStyles();
+      pageIndex = 1;
+      aplicarFiltrosYRender();
+    });
+
+    on(btnSalidaTab, "click", () => {
+      vistaActual = "salida";
+      setTabStyles();
+      pageIndex = 1;
+      aplicarFiltrosYRender();
+    });
   }
 
   function initActions() {
-    if (btnActualizar) btnActualizar.addEventListener("click", cargarDatos);
-    if (btnExportarVista) btnExportarVista.addEventListener("click", exportarVistaActual);
-    if (btnExportarTodo) btnExportarTodo.addEventListener("click", exportarTodo);
+    on(btnActualizar, "click", cargarDatos);
+    on(btnExportarVista, "click", exportarVistaActual);
+    on(btnExportarTodo, "click", exportarTodo);
   }
 
   function initPager() {
@@ -1102,29 +1071,30 @@ document.addEventListener("DOMContentLoaded", () => {
       aplicarFiltrosYRender();
     };
 
-    if (pageSize100Top) pageSize100Top.addEventListener("click", () => setSize(100));
-    if (pageSize200Top) pageSize200Top.addEventListener("click", () => setSize(200));
-    if (pageSize300Top) pageSize300Top.addEventListener("click", () => setSize(300));
-    if (pageSizeAllTop) pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
+    on(pageSize100Top, "click", () => setSize(100));
+    on(pageSize200Top, "click", () => setSize(200));
+    on(pageSize300Top, "click", () => setSize(300));
+    on(pageSizeAllTop, "click", () => setSize(Infinity));
 
-    if (pageSize100Bottom) pageSize100Bottom.addEventListener("click", () => setSize(100));
-    if (pageSize200Bottom) pageSize200Bottom.addEventListener("click", () => setSize(200));
-    if (pageSize300Bottom) pageSize300Bottom.addEventListener("click", () => setSize(300));
-    if (pageSizeAllBottom) pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
+    on(pageSize100Bottom, "click", () => setSize(100));
+    on(pageSize200Bottom, "click", () => setSize(200));
+    on(pageSize300Bottom, "click", () => setSize(300));
+    on(pageSizeAllBottom, "click", () => setSize(Infinity));
 
     const prev = () => {
       pageIndex = Math.max(1, pageIndex - 1);
       aplicarFiltrosYRender();
     };
+
     const next = () => {
       pageIndex = pageIndex + 1;
       aplicarFiltrosYRender();
     };
 
-    if (pagePrevTop) pagePrevTop.addEventListener("click", prev);
-    if (pagePrevBottom) pagePrevBottom.addEventListener("click", prev);
-    if (pageNextTop) pageNextTop.addEventListener("click", next);
-    if (pageNextBottom) pageNextBottom.addEventListener("click", next);
+    on(pagePrevTop, "click", prev);
+    on(pagePrevBottom, "click", prev);
+    on(pageNextTop, "click", next);
+    on(pageNextBottom, "click", next);
   }
 
   function initDateNav() {
@@ -1132,31 +1102,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const onChangeBottom = () =>
       applyDateChange(dateFromBottom?.value || "", dateToBottom?.value || "");
 
-    if (dateFromTop) dateFromTop.addEventListener("change", onChangeTop);
-    if (dateToTop) dateToTop.addEventListener("change", onChangeTop);
-    if (dateFromBottom) dateFromBottom.addEventListener("change", onChangeBottom);
-    if (dateToBottom) dateToBottom.addEventListener("change", onChangeBottom);
+    on(dateFromTop, "change", onChangeTop);
+    on(dateToTop, "change", onChangeTop);
+    on(dateFromBottom, "change", onChangeBottom);
+    on(dateToBottom, "change", onChangeBottom);
 
-    if (rangeClearTop) rangeClearTop.addEventListener("click", () => applyDateChange("", ""));
-    if (rangeClearBottom) rangeClearBottom.addEventListener("click", () => applyDateChange("", ""));
+    on(rangeClearTop, "click", () => applyDateChange("", ""));
+    on(rangeClearBottom, "click", () => applyDateChange("", ""));
 
-    if (rangePrevTop) rangePrevTop.addEventListener("click", () => moveDateRange(-1));
-    if (rangePrevBottom) rangePrevBottom.addEventListener("click", () => moveDateRange(-1));
-    if (rangeNextTop) rangeNextTop.addEventListener("click", () => moveDateRange(1));
-    if (rangeNextBottom) rangeNextBottom.addEventListener("click", () => moveDateRange(1));
+    on(rangePrevTop, "click", () => moveDateRange(-1));
+    on(rangePrevBottom, "click", () => moveDateRange(-1));
+    on(rangeNextTop, "click", () => moveDateRange(1));
+    on(rangeNextBottom, "click", () => moveDateRange(1));
   }
 
   function initFab() {
-    if (fabTop) {
-      fabTop.addEventListener("click", () => {
-        (pageTop || document.documentElement).scrollIntoView({ behavior: "smooth" });
-      });
-    }
-    if (fabBottom) {
-      fabBottom.addEventListener("click", () => {
-        (pageBottom || document.documentElement).scrollIntoView({ behavior: "smooth" });
-      });
-    }
+    on(fabTop, "click", () => {
+      (pageTop || document.documentElement).scrollIntoView({ behavior: "smooth" });
+    });
+    on(fabBottom, "click", () => {
+      (pageBottom || document.documentElement).scrollIntoView({ behavior: "smooth" });
+    });
   }
 
   // ====== INIT ======

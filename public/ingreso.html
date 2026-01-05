@@ -7,6 +7,9 @@
 
     <link rel="manifest" href="./g-manifest.webmanifest" />
     <meta name="theme-color" content="#5048e5" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="./tw-config.js"></script>
+    <script src="./theme.js" defer></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -136,12 +139,29 @@
               <span
                 class="inline-flex items-center justify-center size-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300"
               >
-                <span class="material-symbols-outlined text-[18px]">logout</span>
+                <span class="material-symbols-outlined text-[18px]"
+                  >logout</span
+                >
               </span>
               <span class="hidden sm:inline">Cerrar sesión</span>
             </button>
           </div>
         </div>
+        <button
+          id="btn-theme"
+          type="button"
+          class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          title="Cambiar tema"
+        >
+          <span
+            class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary"
+          >
+            <span id="theme-icon" class="material-symbols-outlined text-[18px]"
+              >dark_mode</span
+            >
+          </span>
+          <span id="theme-label" class="hidden sm:inline">Oscuro</span>
+        </button>
       </header>
 
       <!-- Main -->
@@ -163,7 +183,9 @@
                 <h2 class="text-lg md:text-2xl font-extrabold tracking-tight">
                   Registrar ingreso de ganado
                 </h2>
-                <p class="text-sm md:text-base text-gray-600 dark:text-gray-400">
+                <p
+                  class="text-sm md:text-base text-gray-600 dark:text-gray-400"
+                >
                   Completa la información del ingreso. La salida se registra más
                   adelante.
                 </p>
@@ -208,7 +230,10 @@
                       >dataset</span
                     >
                     <span
-                      >Fincas: <span id="fincas-total" class="font-extrabold">0</span></span
+                      >Fincas:
+                      <span id="fincas-total" class="font-extrabold"
+                        >0</span
+                      ></span
                     >
                   </div>
 
@@ -236,7 +261,9 @@
                     <span class="material-symbols-outlined">warning</span>
                   </div>
                   <div class="space-y-1">
-                    <p class="font-extrabold text-amber-800 dark:text-amber-300">
+                    <p
+                      class="font-extrabold text-amber-800 dark:text-amber-300"
+                    >
                       Atención: borrado en cascada
                     </p>
                     <p class="text-sm text-amber-800/90 dark:text-amber-200/90">
@@ -280,7 +307,9 @@
                     type="button"
                     class="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
                   >
-                    <span class="material-symbols-outlined text-[18px]">add</span>
+                    <span class="material-symbols-outlined text-[18px]"
+                      >add</span
+                    >
                     Agregar finca
                   </button>
                 </div>
@@ -616,7 +645,9 @@
                   id="btn-guardar-ingreso"
                   class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
                 >
-                  <span class="material-symbols-outlined text-[18px]">save</span>
+                  <span class="material-symbols-outlined text-[18px]"
+                    >save</span
+                  >
                   Guardar ingreso
                 </button>
               </div>
@@ -642,7 +673,10 @@
           ></div>
           <div>
             <p id="loading-title" class="font-extrabold">Procesando…</p>
-            <p id="loading-subtitle" class="text-sm text-gray-600 dark:text-gray-400">
+            <p
+              id="loading-subtitle"
+              class="text-sm text-gray-600 dark:text-gray-400"
+            >
               Un momento por favor.
             </p>
           </div>
@@ -705,7 +739,10 @@
             <span class="material-symbols-outlined">error</span>
           </div>
           <div class="space-y-1">
-            <h3 id="action-error-title" class="text-lg font-extrabold text-rose-600">
+            <h3
+              id="action-error-title"
+              class="text-lg font-extrabold text-rose-600"
+            >
               Error
             </h3>
             <p
@@ -745,9 +782,7 @@
             <span class="material-symbols-outlined">help</span>
           </div>
           <div class="space-y-1">
-            <h3 id="confirm-title" class="text-lg font-extrabold">
-              Confirmar
-            </h3>
+            <h3 id="confirm-title" class="text-lg font-extrabold">Confirmar</h3>
             <p
               id="confirm-message"
               class="text-sm text-gray-600 dark:text-gray-300"
@@ -810,7 +845,10 @@
             class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
             placeholder="Ej: LA ESPERANZA"
           />
-          <p id="editFincaHint" class="text-xs text-gray-500 dark:text-gray-400">
+          <p
+            id="editFincaHint"
+            class="text-xs text-gray-500 dark:text-gray-400"
+          >
             Se guardará en MAYÚSCULAS automáticamente.
           </p>
         </div>
@@ -853,7 +891,10 @@
             <h3 class="text-lg font-extrabold text-amber-600">
               Revisar información
             </h3>
-            <p id="warning-message" class="text-sm text-gray-600 dark:text-gray-300">
+            <p
+              id="warning-message"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
               Revisa los campos.
             </p>
           </div>
@@ -886,7 +927,9 @@
             <span class="material-symbols-outlined">check_circle</span>
           </div>
           <div class="space-y-1">
-            <h3 class="text-lg font-extrabold text-emerald-700 dark:text-emerald-300">
+            <h3
+              class="text-lg font-extrabold text-emerald-700 dark:text-emerald-300"
+            >
               Ingreso registrado
             </h3>
             <p class="text-sm text-gray-600 dark:text-gray-300">
@@ -931,7 +974,10 @@
           </div>
           <div class="space-y-1">
             <h3 class="text-lg font-extrabold text-rose-600">Error</h3>
-            <p id="error-message" class="text-sm text-gray-600 dark:text-gray-300">
+            <p
+              id="error-message"
+              class="text-sm text-gray-600 dark:text-gray-300"
+            >
               Ocurrió un error.
             </p>
           </div>
