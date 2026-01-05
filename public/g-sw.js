@@ -1,52 +1,132 @@
-// public/g-sw.js - Service worker del Módulo Ganados
+// public/g-sw.js
 
-const CACHE_NAME = 'ganados-cache-v1';
-const URLS_TO_CACHE = [
-  '/',
-  '/login.html',
-  '/dashboard.html',
-  '/tw-config.js',
-  '/login.js',
-  '/dashboard.js'
+// ✅ Cambia esta versión cuando despliegues cambios importantes
+// (puedes poner fecha/hora). Solo con cambiar esto ya rompe caché viejo.
+const VERSION = "2026-01-05-01";
+
+const STATIC_CACHE = `ganados-static-${VERSION}`;
+const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
+
+// Cache mínimo (solo archivos “shell” reales)
+const STATIC_ASSETS = [
+  "/",
+  "/g-manifest.webmanifest",
+  "/g-pwa.js",
+  "/tw-config.js",
+
+  // ✅ tus JS principales (ajusta si cambian nombres/rutas)
+  "/dashboard.js",
+  "/ingreso.js",
+  "/salida.js",
+  "/modificaciones.js",
+
+  // (si tienes css local agrégalo acá)
+  // "/styles.css",
 ];
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE);
+      await cache.addAll(STATIC_ASSETS);
+      await self.skipWaiting();
+    })()
   );
-  self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
+          .filter((k) => k.startsWith("ganados-") && ![STATIC_CACHE, RUNTIME_CACHE].includes(k))
+          .map((k) => caches.delete(k))
+      );
+
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  // Solo manejamos GET
-  if (event.request.method !== 'GET') return;
+// Permite forzar activación desde g-pwa.js
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
 
-  event.respondWith(
-    caches.match(event.request).then((resp) => {
-      if (resp) return resp;
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
 
-      return fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-        return new Response('Sin conexión y recurso no cacheado', {
-          status: 503,
-          statusText: 'Offline'
-        });
-      });
+  // Solo GET
+  if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+
+  // No interceptar requests a la API
+  if (url.pathname.startsWith("/api/")) return;
+
+  // 1) Navegaciones (HTML): NETWORK FIRST
+  // (para que al volver al dashboard no te sirva HTML/JS viejos)
+  if (req.mode === "navigate") {
+    event.respondWith(networkFirst(req, STATIC_CACHE));
+    return;
+  }
+
+  // 2) JS/CSS: NETWORK FIRST (evita dashboard.js viejo pegado)
+  if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
+    event.respondWith(networkFirst(req, RUNTIME_CACHE));
+    return;
+  }
+
+  // 3) Imágenes / fonts: CACHE FIRST
+  if (
+    url.pathname.match(/\.(png|jpg|jpeg|webp|svg|ico)$/i) ||
+    url.pathname.match(/\.(woff|woff2|ttf|otf)$/i)
+  ) {
+    event.respondWith(cacheFirst(req, RUNTIME_CACHE));
+    return;
+  }
+
+  // 4) Default: stale-while-revalidate suave
+  event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
+});
+
+// ----------------- estrategias -----------------
+async function networkFirst(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const fresh = await fetch(req);
+    // guarda copia
+    cache.put(req, fresh.clone());
+    return fresh;
+  } catch (e) {
+    const cached = await cache.match(req);
+    return cached || Response.error();
+  }
+}
+
+async function cacheFirst(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+
+  const fresh = await fetch(req);
+  cache.put(req, fresh.clone());
+  return fresh;
+}
+
+async function staleWhileRevalidate(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(req);
+
+  const fetchPromise = fetch(req)
+    .then((fresh) => {
+      cache.put(req, fresh.clone());
+      return fresh;
     })
-  );
-});
+    .catch(() => cached);
+
+  return cached || fetchPromise;
+}

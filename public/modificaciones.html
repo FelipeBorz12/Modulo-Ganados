@@ -6,528 +6,761 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <link rel="manifest" href="./g-manifest.webmanifest" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#5048e5" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Material Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="./tw-config.js"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Theme Config (igual dashboard/ingreso) -->
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#5048e5",
+              "background-light": "#f6f6f8",
+              "background-dark": "#121121",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1e1d2b",
+              "surface-dark-2": "#252433",
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+              lg: "1.5rem",
+              xl: "2rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
   </head>
-  <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
-    <!-- HEADER -->
-    <header class="bg-indigo-600 text-white shadow">
-      <div class="w-full px-4 md:px-8 py-4 flex items-center justify-between">
-        <div class="flex flex-col gap-0.5">
-          <span class="text-xs md:text-sm text-indigo-100">
-            Módulo Ganados
-          </span>
-          <h1 class="text-xl md:text-2xl font-semibold tracking-wide">
-            Modificaciones
-          </h1>
-        </div>
 
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            class="hidden sm:inline-flex px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-sm"
-            onclick="window.location.href='/dashboard'"
-          >
-            Ir al histórico
-          </button>
-
-          <button
-            id="btn-logout"
-            type="button"
-            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-medium transition-colors"
-          >
-            <span
-              class="inline-flex h-6 w-6 rounded-full bg-white/20 items-center justify-center text-xs"
+  <body
+    class="bg-background-light dark:bg-background-dark text-[#121117] dark:text-white font-display min-h-screen"
+  >
+    <div class="min-h-screen flex flex-col">
+      <!-- Header -->
+      <header
+        class="sticky top-0 z-40 border-b border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-[#1a1926]/90 backdrop-blur px-4 md:px-10 py-3"
+      >
+        <div class="w-full flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div
+              class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
             >
-              ⎋
-            </span>
-            <span>Cerrar sesión</span>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <!-- CONTENIDO -->
-    <main
-      class="w-full px-3 sm:px-4 md:px-8 lg:px-12 py-6 md:py-8 space-y-6 md:space-y-8"
-    >
-      <!-- DESCRIPCIÓN -->
-      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
-        <h2 class="text-lg md:text-2xl font-semibold text-slate-900 mb-2">
-          Buscar y modificar registros
-        </h2>
-        <p class="text-sm md:text-base text-slate-600">
-          Localiza un animal por su número, realiza los cambios necesarios en
-          los datos de ingreso o salida y guarda las modificaciones. También
-          puedes eliminar completamente el registro si es necesario.
-        </p>
-      </section>
-
-      <!-- BÚSQUEDA -->
-      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-4 md:py-5">
-        <form
-          id="form-buscar-mod"
-          class="flex flex-col md:flex-row gap-3 md:items-end"
-        >
-          <div class="flex-1 flex flex-col gap-1">
-            <label
-              for="numeroBuscarMod"
-              class="text-sm md:text-base font-medium text-slate-800"
-              >Número del animal</label
-            >
-            <input
-              id="numeroBuscarMod"
-              type="text"
-              class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Ej. A123"
-              required
-            />
-          </div>
-
-          <button
-            id="btn-buscar-mod"
-            type="submit"
-            class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
-          >
-            Buscar
-          </button>
-        </form>
-
-        <p
-          id="info-mod-encontrado"
-          class="mt-3 text-xs md:text-sm text-slate-500"
-        >
-          Ingresa el número y presiona
-          <span class="font-semibold">Buscar</span>.
-        </p>
-      </section>
-
-      <!-- FORMULARIO MODIFICACIÓN -->
-      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
-        <form id="form-modificaciones" class="space-y-6">
-          <!-- DATOS DE INGRESO -->
-          <div class="space-y-3">
-            <h3 class="text-base md:text-lg font-semibold text-slate-900">
-              Datos de ingreso
-            </h3>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-3">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-fechaIngreso"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Fecha ingreso</label
-                >
-                <input
-                  id="mod-fechaIngreso"
-                  type="date"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-numero"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Número</label
-                >
-                <input
-                  id="mod-numero"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-finca"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Finca</label
-                >
-                <input
-                  id="mod-finca"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              <span class="material-symbols-outlined text-[26px]">edit_note</span>
             </div>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-color"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Color</label
-                >
-                <input
-                  id="mod-color"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-sexo"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Sexo</label
-                >
-                <select
-                  id="mod-sexo"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Seleccione...</option>
-                  <option value="MACHO">Macho</option>
-                  <option value="HEMBRA">Hembra</option>
-                </select>
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-edad"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Edad</label
-                >
-                <input
-                  id="mod-edad"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-raza"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Raza</label
-                >
-                <input
-                  id="mod-raza"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-pesoFinca"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Peso finca (kg)</label
-                >
-                <input
-                  id="mod-pesoFinca"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-peso"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Peso ingreso (kg)</label
-                >
-                <input
-                  id="mod-peso"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-marca"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Marca llegada</label
-                >
-                <input
-                  id="mod-marca"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-proveedor"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Proveedor</label
-                >
-                <input
-                  id="mod-proveedor"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-valorKGingreso"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Valor kg ingreso</label
-                >
-                <input
-                  id="mod-valorKGingreso"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-flete"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Flete</label
-                >
-                <input
-                  id="mod-flete"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-comision"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Comisión</label
-                >
-                <input
-                  id="mod-comision"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-mermas"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Mermas</label
-                >
-                <input
-                  id="mod-mermas"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+            <div class="leading-tight">
+              <h1 class="text-base md:text-lg font-extrabold tracking-tight">
+                Módulo Ganados
+              </h1>
+              <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                Modificaciones
+              </p>
             </div>
           </div>
 
-          <!-- DATOS DE SALIDA -->
-          <div class="space-y-3">
-            <h3 class="text-base md:text-lg font-semibold text-slate-900">
-              Datos de salida
-            </h3>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-fechaSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Fecha salida</label
-                >
-                <input
-                  id="mod-fechaSalida"
-                  type="date"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-pesoSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Peso salida (kg)</label
-                >
-                <input
-                  id="mod-pesoSalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-pesoFincaSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Peso finca (kg)</label
-                >
-                <input
-                  id="mod-pesoFincaSalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-destino"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Destino</label
-                >
-                <input
-                  id="mod-destino"
-                  type="text"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div class="grid gap-4 md:gap-6 md:grid-cols-4">
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-valorKGsalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Valor kg salida</label
-                >
-                <input
-                  id="mod-valorKGsalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-fleteSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Flete salida</label
-                >
-                <input
-                  id="mod-fleteSalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-comisionSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Comisión salida</label
-                >
-                <input
-                  id="mod-comisionSalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label
-                  for="mod-mermasSalida"
-                  class="text-sm md:text-base font-medium text-slate-800"
-                  >Mermas salida</label
-                >
-                <input
-                  id="mod-mermasSalida"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- BOTONES -->
-          <div
-            class="flex flex-wrap gap-3 justify-between pt-3 border-t border-slate-100 mt-4"
-          >
+          <div class="flex items-center gap-2">
             <button
+              id="btn-back"
               type="button"
-              id="btn-eliminar-registro"
-              class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700 shadow"
+              class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              title="Volver"
             >
-              Eliminar registro
+              <span
+                class="inline-flex items-center justify-center size-8 rounded-full bg-primary/10 text-primary"
+              >
+                <span class="material-symbols-outlined text-[18px]"
+                  >arrow_back</span
+                >
+              </span>
+              <span class="hidden sm:inline">Volver</span>
             </button>
 
-            <div class="flex flex-wrap gap-3">
-              <button
-                type="button"
-                id="btn-revertir-cambios"
-                class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
-              >
-                Revertir cambios
-              </button>
-              <button
-                type="submit"
-                id="btn-guardar-cambios"
-                class="px-5 py-2 rounded-full bg-indigo-600 text-white text-sm md:text-base font-semibold hover:bg-indigo-700 shadow"
-              >
-                Guardar cambios
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-    </main>
+            <button
+              type="button"
+              class="hidden sm:inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-primary shadow-sm ring-1 ring-inset ring-primary/20 hover:bg-primary/5 transition"
+              onclick="window.location.href='/dashboard'"
+              title="Ir al histórico"
+            >
+              <span class="material-symbols-outlined text-[18px]">table</span>
+              Histórico
+            </button>
 
-    <!-- MODALES -->
+            <button
+              id="btn-logout"
+              type="button"
+              class="flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              <span
+                class="inline-flex items-center justify-center size-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300"
+              >
+                <span class="material-symbols-outlined text-[18px]">logout</span>
+              </span>
+              <span class="hidden sm:inline">Cerrar sesión</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 px-4 md:px-10 lg:px-20 py-8">
+        <div class="w-full flex flex-col gap-6">
+          <!-- Intro -->
+          <section
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
+              >
+                <span class="material-symbols-outlined text-[22px]">search</span>
+              </div>
+              <div class="space-y-1">
+                <h2 class="text-lg md:text-2xl font-extrabold tracking-tight">
+                  Buscar y modificar registros
+                </h2>
+                <p class="text-sm md:text-base text-gray-600 dark:text-gray-400">
+                  Busca por número. Modifica cualquier campo del registro y guarda.
+                  También puedes eliminar el registro.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Búsqueda -->
+          <section
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+          >
+            <form
+              id="form-buscar-mod"
+              class="grid gap-3 md:grid-cols-12 items-end"
+            >
+              <div class="md:col-span-8">
+                <label
+                  for="numeroBuscarMod"
+                  class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                  >Número del animal</label
+                >
+                <input
+                  id="numeroBuscarMod"
+                  type="text"
+                  class="mt-1 w-full uppercase rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary"
+                  placeholder="Ej. A123"
+                  required
+                />
+              </div>
+
+              <div class="md:col-span-4 flex gap-2">
+                <button
+                  id="btn-buscar-mod"
+                  type="submit"
+                  class="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]">search</span>
+                  Buscar
+                </button>
+              </div>
+            </form>
+
+            <p
+              id="info-mod-encontrado"
+              class="mt-3 text-xs md:text-sm text-gray-500 dark:text-gray-400"
+            >
+              Ingresa el número y presiona <span class="font-semibold">Buscar</span>.
+            </p>
+          </section>
+
+          <!-- Formulario modificación -->
+          <section
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+          >
+            <form id="form-modificaciones" class="space-y-7">
+              <!-- Meta -->
+              <div class="grid gap-4 md:gap-6 md:grid-cols-2">
+                <div class="flex flex-col gap-1">
+                  <label
+                    for="mod-numero"
+                    class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                    >Número</label
+                  >
+                  <input
+                    id="mod-numero"
+                    type="text"
+                    class="w-full uppercase rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                    placeholder="—"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-1">
+                  <label
+                    for="mod-finca"
+                    class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                    >Finca</label
+                  >
+                  <select
+                    id="mod-finca"
+                    class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                  >
+                    <option value="">Cargando fincas...</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Datos de ingreso -->
+              <div class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >input</span
+                    >
+                  </span>
+                  <h3 class="text-base md:text-lg font-extrabold tracking-tight">
+                    Datos de ingreso
+                  </h3>
+                </div>
+
+                <div class="grid gap-4 md:gap-6 md:grid-cols-3">
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-fechaIngreso"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Fecha ingreso</label
+                    >
+                    <input
+                      id="mod-fechaIngreso"
+                      type="date"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-color"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Color</label
+                    >
+                    <input
+                      id="mod-color"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="Opcional"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-sexo"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Sexo</label
+                    >
+                    <select
+                      id="mod-sexo"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                    >
+                      <option value="">Seleccione...</option>
+                      <option value="MACHO">Macho</option>
+                      <option value="HEMBRA">Hembra</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div
+                  class="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                >
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-edad"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Edad</label
+                    >
+                    <input
+                      id="mod-edad"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="Ej. 18 meses"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-raza"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Raza</label
+                    >
+                    <input
+                      id="mod-raza"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="Ej. Holstein"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-marca"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Marca llegada</label
+                    >
+                    <input
+                      id="mod-marca"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-proveedor"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Proveedor</label
+                    >
+                    <input
+                      id="mod-proveedor"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  class="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                >
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-pesoFinca"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Peso finca (kg)</label
+                    >
+                    <input
+                      id="mod-pesoFinca"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-peso"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Peso ingreso (kg)</label
+                    >
+                    <input
+                      id="mod-peso"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-valorKGingreso"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Valor kg ingreso</label
+                    >
+                    <input
+                      id="mod-valorKGingreso"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-flete"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Flete</label
+                    >
+                    <input
+                      id="mod-flete"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-comision"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Comisión</label
+                    >
+                    <input
+                      id="mod-comision"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-mermas"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Mermas</label
+                    >
+                    <input
+                      id="mod-mermas"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Datos de salida -->
+              <div class="space-y-3">
+                <div class="flex items-center gap-2">
+                  <span
+                    class="inline-flex items-center justify-center size-9 rounded-full bg-primary/10 text-primary"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >output</span
+                    >
+                  </span>
+                  <h3 class="text-base md:text-lg font-extrabold tracking-tight">
+                    Datos de salida
+                  </h3>
+                </div>
+
+                <div
+                  class="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                >
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-fechaSalida"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Fecha salida</label
+                    >
+                    <input
+                      id="mod-fechaSalida"
+                      type="date"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-pesoSalida"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Peso salida (kg)</label
+                    >
+                    <input
+                      id="mod-pesoSalida"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-valorKGsalida"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Valor kg salida</label
+                    >
+                    <input
+                      id="mod-valorKGsalida"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputmode="decimal"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div class="flex flex-col gap-1">
+                    <label
+                      for="mod-destino"
+                      class="text-sm font-semibold text-gray-700 dark:text-gray-200"
+                      >Destino</label
+                    >
+                    <input
+                      id="mod-destino"
+                      type="text"
+                      class="w-full rounded-xl border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-sm md:text-base text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Botones -->
+              <div
+                class="flex flex-wrap gap-2 justify-between pt-4 border-t border-gray-200/70 dark:border-gray-800"
+              >
+                <button
+                  type="button"
+                  id="btn-eliminar-registro"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-rose-700 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                  Eliminar registro
+                </button>
+
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    id="btn-revertir-cambios"
+                    class="inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >history</span
+                    >
+                    Revertir
+                  </button>
+
+                  <button
+                    type="submit"
+                    id="btn-guardar-cambios"
+                    class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">save</span>
+                    Guardar cambios
+                  </button>
+                </div>
+              </div>
+            </form>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- ====== MODALES ====== -->
+
+    <!-- Loading -->
     <div
       id="loading-modal"
-      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 flex flex-col items-center gap-3"
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
       >
-        <div
-          class="h-10 w-10 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"
-        ></div>
-        <p class="text-sm md:text-base text-slate-800 font-medium">
-          Procesando cambios...
-        </p>
+        <div class="flex items-center gap-3">
+          <div
+            class="size-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin"
+          ></div>
+          <div>
+            <p id="loading-title" class="font-extrabold">Procesando…</p>
+            <p id="loading-subtitle" class="text-sm text-gray-600 dark:text-gray-400">
+              Un momento por favor.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- Success -->
     <div
       id="success-modal"
-      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
       >
-        <h3 class="text-lg font-semibold text-emerald-700">
-          Cambios guardados
-        </h3>
-        <p class="text-sm md:text-base text-slate-700">
-          El registro fue actualizado correctamente.
-        </p>
-        <div class="flex justify-end">
+        <div class="flex items-start gap-3">
+          <div
+            class="size-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">check_circle</span>
+          </div>
+          <div class="space-y-1">
+            <h3 id="success-title" class="text-lg font-extrabold">
+              Cambios guardados
+            </h3>
+            <p id="success-message" class="text-sm text-gray-600 dark:text-gray-300">
+              El registro fue actualizado correctamente.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-4">
           <button
             id="success-close"
             type="button"
-            class="px-4 py-2 rounded-full bg-emerald-600 text-white text-sm md:text-base font-semibold hover:bg-emerald-700"
+            class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 transition"
+          >
+            <span class="material-symbols-outlined text-[18px]">done</span>
+            Aceptar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div
+      id="error-modal"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
+    >
+      <div
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
+      >
+        <div class="flex items-start gap-3">
+          <div
+            class="size-10 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">error</span>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-lg font-extrabold text-rose-600">Error</h3>
+            <p id="error-message" class="text-sm text-gray-600 dark:text-gray-300">
+              Ocurrió un error al procesar la solicitud.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-4">
+          <button
+            id="error-close"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-rose-700 transition"
+          >
+            <span class="material-symbols-outlined text-[18px]">close</span>
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Warning -->
+    <div
+      id="warning-modal"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
+    >
+      <div
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
+      >
+        <div class="flex items-start gap-3">
+          <div
+            class="size-10 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">warning</span>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-lg font-extrabold text-amber-600">Advertencia</h3>
+            <p id="warning-message" class="text-sm text-gray-600 dark:text-gray-300">
+              Revisa los datos antes de guardar.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-4">
+          <button
+            id="warning-close"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-extrabold text-white hover:bg-amber-600 transition"
+          >
+            <span class="material-symbols-outlined text-[18px]">done</span>
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm genérico -->
+    <div
+      id="confirm-modal"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
+    >
+      <div
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
+      >
+        <div class="flex items-start gap-3">
+          <div
+            class="size-10 rounded-full bg-gray-100 dark:bg-[#2c2b3b] text-gray-700 dark:text-gray-200 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">help</span>
+          </div>
+          <div class="space-y-1">
+            <h3 id="confirm-title" class="text-lg font-extrabold">Confirmar</h3>
+            <p
+              id="confirm-message"
+              class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line"
+            >
+              ¿Seguro?
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4">
+          <button
+            id="confirm-cancel"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            id="confirm-accept"
+            type="button"
+            class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 transition"
           >
             Aceptar
           </button>
@@ -535,82 +768,44 @@
       </div>
     </div>
 
-    <!-- MODAL ERROR -->
-    <div
-      id="error-modal"
-      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
-    >
-      <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
-      >
-        <h3 class="text-lg font-semibold text-rose-600">
-          Error en la operación
-        </h3>
-        <p id="error-message" class="text-sm md:text-base text-slate-700">
-          Ocurrió un error al procesar la solicitud.
-        </p>
-        <div class="flex justify-end">
-          <button
-            id="error-close"
-            type="button"
-            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL ADVERTENCIA GENERAL -->
-    <div
-      id="warning-modal"
-      class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-40 hidden"
-    >
-      <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-3"
-      >
-        <h3 class="text-lg font-semibold text-amber-600">Advertencia</h3>
-        <p id="warning-message" class="text-sm md:text-base text-slate-700">
-          Revisa los datos antes de guardar.
-        </p>
-        <div class="flex justify-end">
-          <button
-            id="warning-close"
-            type="button"
-            class="px-4 py-2 rounded-full bg-amber-500 text-white text-sm md:text-base font-semibold hover:bg-amber-600"
-          >
-            Entendido
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL CONFIRMACIÓN ELIMINAR -->
+    <!-- Confirm delete -->
     <div
       id="delete-modal"
-      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-6 space-y-4"
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 border border-gray-200/70 dark:border-gray-800"
       >
-        <h3 class="text-lg font-semibold text-rose-600">¿Eliminar registro?</h3>
-        <p class="text-sm md:text-base text-slate-700">
-          Esta acción borrará definitivamente el registro del animal en el
-          histórico. No se puede deshacer.
-        </p>
-        <div class="flex justify-end gap-2">
+        <div class="flex items-start gap-3">
+          <div
+            class="size-10 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">delete_forever</span>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-lg font-extrabold text-rose-600">
+              ¿Eliminar registro?
+            </h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              Esta acción borra definitivamente el registro. No se puede deshacer.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4">
           <button
             id="delete-cancel"
             type="button"
-            class="px-4 py-2 rounded-full border border-slate-300 bg-white text-sm md:text-base hover:bg-slate-50"
+            class="inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
           >
             Cancelar
           </button>
           <button
             id="delete-confirm"
             type="button"
-            class="px-4 py-2 rounded-full bg-rose-600 text-white text-sm md:text-base font-semibold hover:bg-rose-700"
+            class="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-extrabold text-white hover:bg-rose-700 transition"
           >
+            <span class="material-symbols-outlined text-[18px]">delete</span>
             Eliminar
           </button>
         </div>
@@ -619,6 +814,5 @@
 
     <script src="./modificaciones.js" defer></script>
     <script src="./g-pwa.js" defer></script>
-
   </body>
 </html>

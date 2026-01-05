@@ -1,370 +1,880 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="light">
   <head>
     <meta charset="UTF-8" />
     <title>Histórico - Módulo Ganados</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <link rel="manifest" href="./g-manifest.webmanifest" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#5048e5" />
 
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="./tw-config.js"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Material Icons -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Theme Config -->
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#5048e5",
+              "background-light": "#f6f6f8",
+              "background-dark": "#121121",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1e1d2b",
+              "surface-dark-2": "#252433",
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "1rem",
+              lg: "1.5rem",
+              xl: "2rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      /* Scrollbar suave */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+
+      /* Cursor “arrastrar” para scroll horizontal */
+      .drag-scroll {
+        cursor: grab;
+      }
+      .drag-scroll.dragging {
+        cursor: grabbing;
+      }
+    </style>
   </head>
-  <body class="bg-slate-100 text-slate-900 font-sans min-h-screen">
-    <!-- HEADER SUPERIOR -->
-    <header class="bg-indigo-600 text-white shadow">
-      <div class="w-full px-4 md:px-8 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <h1 class="text-xl md:text-2xl font-semibold tracking-wide">
-            Inicio
-          </h1>
-        </div>
 
-        <div class="flex items-center gap-4">
-          <span class="hidden md:inline text-sm text-indigo-100">
-            Histórico
-          </span>
+  <body
+    class="bg-background-light dark:bg-background-dark text-[#121117] dark:text-white font-display min-h-screen"
+  >
+    <div id="page-top" class="min-h-screen flex flex-col">
+      <!-- Header -->
+      <header
+        class="sticky top-0 z-40 border-b border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-[#1a1926]/90 backdrop-blur px-4 md:px-10 py-3"
+      >
+        <div class="w-full flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div
+              class="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center"
+            >
+              <span class="material-symbols-outlined text-[26px]"
+                >agriculture</span
+              >
+            </div>
+            <div class="leading-tight">
+              <h1 class="text-base md:text-lg font-extrabold tracking-tight">
+                Módulo Ganados
+              </h1>
+              <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                Histórico (Ingresos / Salidas)
+              </p>
+            </div>
+          </div>
 
-          <!-- Botón cerrar sesión -->
           <button
             id="btn-logout"
             type="button"
-            class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            class="flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
           >
             <span
-              class="inline-flex h-6 w-6 rounded-full bg-white/20 items-center justify-center text-xs"
+              class="inline-flex items-center justify-center size-8 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300"
             >
-              ⎋
+              <span class="material-symbols-outlined text-[18px]">logout</span>
             </span>
-            <span>Cerrar sesión</span>
+            <span class="hidden sm:inline">Cerrar sesión</span>
           </button>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <!-- CONTENIDO -->
-    <main
-      class="w-full px-3 sm:px-4 md:px-8 lg:px-12 py-6 md:py-8 space-y-6 md:space-y-8"
-    >
-      <!-- TÍTULO / BOTONES PRINCIPALES -->
-      <section class="bg-white rounded-2xl shadow px-4 md:px-8 py-5 md:py-6">
-        <div class="text-center mb-4 md:mb-5">
-          <h2 class="text-lg md:text-2xl font-semibold text-slate-900">
-            Histórico
-          </h2>
-        </div>
-
-        <div class="flex flex-wrap gap-3 justify-center md:justify-center mb-4">
-          <!-- REDIRECCIONES A LAS PÁGINAS -->
-          <button
-            type="button"
-            class="px-5 py-2 text-sm md:text-base rounded-full bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700 transition-colors"
-            onclick="window.location.href='/ingreso'"
-          >
-            Nuevo ingreso
-          </button>
-          <button
-            type="button"
-            class="px-5 py-2 text-sm md:text-base rounded-full bg-emerald-600 text-white font-semibold shadow hover:bg-emerald-700 transition-colors"
-            onclick="window.location.href='/salida'"
-          >
-            Nueva salida
-          </button>
-          <button
-            type="button"
-            class="px-5 py-2 text-sm md:text-base rounded-full bg-amber-500 text-white font-semibold shadow hover:bg-amber-600 transition-colors"
-            onclick="window.location.href='/modificaciones'"
-          >
-            Modificaciones
-          </button>
-        </div>
-
-        <!-- Tabs Ingreso / Salida -->
-        <div class="mt-2 flex justify-center">
-          <div
-            class="inline-flex rounded-full overflow-hidden bg-indigo-50 border border-indigo-200"
-          >
-            <button
-              id="btn-ingreso"
-              type="button"
-              class="tab-btn px-8 py-2 text-sm md:text-base font-semibold"
+      <!-- Main -->
+      <main class="flex-1 px-4 md:px-10 lg:px-20 py-8">
+        <div class="w-full flex flex-col gap-6">
+          <!-- Page header -->
+          <section class="flex flex-col gap-2">
+            <h2
+              class="text-3xl md:text-4xl font-black leading-tight tracking-[-0.03em]"
             >
-              Ingreso
-            </button>
-            <button
-              id="btn-salida"
-              type="button"
-              class="tab-btn px-8 py-2 text-sm md:text-base font-semibold"
+              Histórico
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400">
+              Control y análisis de movimientos: totales, promedios, selección y
+              exportación.
+            </p>
+          </section>
+
+          <!-- Acciones rápidas -->
+          <section
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
             >
-              Salida
-            </button>
-          </div>
-        </div>
-      </section>
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                >
+                  <span class="material-symbols-outlined text-[22px]"
+                    >bolt</span
+                  >
+                </span>
+                <div>
+                  <p class="font-bold">Acciones rápidas</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Accede rápido a los flujos principales
+                  </p>
+                </div>
+              </div>
 
-      <!-- TOTALES (según filtros + selección) -->
-      <section class="grid gap-4 md:gap-5 md:grid-cols-5 w-full">
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Registros (contexto)
-          </p>
-          <p
-            id="total-general"
-            class="mt-2 text-2xl md:text-3xl font-bold text-slate-900"
-          >
-            0
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Ingresos
-          </p>
-          <p
-            id="total-ingresos"
-            class="mt-2 text-2xl md:text-3xl font-bold text-emerald-600"
-          >
-            0
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Salidas
-          </p>
-          <p
-            id="total-salidas"
-            class="mt-2 text-2xl md:text-3xl font-bold text-rose-500"
-          >
-            0
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Total ingreso
-          </p>
-          <p
-            id="total-valor-ingreso"
-            class="mt-2 text-2xl md:text-3xl font-bold text-indigo-600"
-          >
-            $0
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Total salida
-          </p>
-          <p
-            id="total-valor-salida"
-            class="mt-2 text-2xl md:text-3xl font-bold text-fuchsia-600"
-          >
-            $0
-          </p>
-        </div>
-      </section>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-primary text-white hover:opacity-95 shadow-sm active:scale-[0.99] transition"
+                  onclick="window.location.href='/ingreso'"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >add_circle</span
+                  >
+                  Nuevo ingreso
+                </button>
 
-      <!-- ESTADÍSTICAS -->
-      <section class="grid gap-4 md:gap-5 md:grid-cols-3 w-full">
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Peso promedio ingreso
-          </p>
-          <p
-            id="stat-peso-ing"
-            class="mt-2 text-xl md:text-2xl font-semibold text-slate-900"
-          >
-            -
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Peso promedio salida
-          </p>
-          <p
-            id="stat-peso-sal"
-            class="mt-2 text-xl md:text-2xl font-semibold text-slate-900"
-          >
-            -
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Ganancia promedio de peso
-          </p>
-          <p
-            id="stat-peso-ganancia"
-            class="mt-2 text-xl md:text-2xl font-semibold text-emerald-700"
-          >
-            -
-          </p>
-        </div>
-      </section>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-emerald-600 text-white hover:opacity-95 shadow-sm active:scale-[0.99] transition"
+                  onclick="window.location.href='/salida'"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >add_circle</span
+                  >
+                  Nueva salida
+                </button>
 
-      <section class="grid gap-4 md:gap-5 md:grid-cols-3 w-full">
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Valor promedio ingreso
-          </p>
-          <p
-            id="stat-valor-ing"
-            class="mt-2 text-xl md:text-2xl font-semibold text-indigo-700"
-          >
-            -
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Valor promedio salida
-          </p>
-          <p
-            id="stat-valor-sal"
-            class="mt-2 text-xl md:text-2xl font-semibold text-fuchsia-700"
-          >
-            -
-          </p>
-        </div>
-        <div class="bg-white rounded-2xl shadow px-4 py-4 md:px-5 md:py-5">
-          <p
-            class="text-[11px] md:text-xs uppercase tracking-wide text-slate-500"
-          >
-            Predicción simple
-          </p>
-          <p
-            id="stat-prediccion"
-            class="mt-2 text-sm md:text-base font-medium text-slate-700 leading-relaxed"
-          >
-            -
-          </p>
-        </div>
-      </section>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-amber-500 text-white hover:opacity-95 shadow-sm active:scale-[0.99] transition"
+                  onclick="window.location.href='/modificaciones'"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >edit_note</span
+                  >
+                  Modificaciones
+                </button>
+              </div>
+            </div>
+          </section>
 
-      <!-- BARRA DE ACCIONES -->
-      <section
-        class="bg-white rounded-2xl shadow px-4 py-4 md:px-6 md:py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+          <!-- TOTALES -->
+          <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Registros (contexto)
+              </p>
+              <p
+                id="total-general"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-[clamp(1.6rem,3.2vw,2.25rem)]"
+              >
+                0
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Ingresos
+              </p>
+              <p
+                id="total-ingresos"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-emerald-600 text-[clamp(1.6rem,3.2vw,2.25rem)]"
+              >
+                0
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Salidas
+              </p>
+              <p
+                id="total-salidas"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-rose-500 text-[clamp(1.6rem,3.2vw,2.25rem)]"
+              >
+                0
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Total ingreso
+              </p>
+              <p
+                id="total-valor-ingreso"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-primary text-[clamp(1.35rem,2.8vw,2.15rem)]"
+              >
+                $0
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Total salida
+              </p>
+              <p
+                id="total-valor-salida"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-fuchsia-600 text-[clamp(1.35rem,2.8vw,2.15rem)]"
+              >
+                $0
+              </p>
+            </div>
+          </section>
+
+          <!-- ✅ UTILIDAD -->
+          <section class="grid gap-4 md:grid-cols-2">
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Utilidad total (salidas)
+              </p>
+              <p
+                id="total-utilidad"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-[clamp(1.35rem,2.8vw,2.15rem)]"
+              >
+                $0
+              </p>
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Suma de (total salida − total ingreso) para registros con salida.
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                % utilidad (margen)
+              </p>
+              <p
+                id="total-utilidad-pct"
+                class="mt-2 font-black tracking-tight leading-none break-all overflow-hidden text-[clamp(1.35rem,2.8vw,2.15rem)]"
+              >
+                -
+              </p>
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                (utilidad total ÷ total ingreso de salidas) × 100
+              </p>
+            </div>
+          </section>
+
+          <!-- ESTADÍSTICAS -->
+          <section class="grid gap-4 md:grid-cols-3">
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Peso promedio ingreso
+              </p>
+              <p id="stat-peso-ing" class="mt-2 text-2xl font-bold">-</p>
+            </div>
+
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Peso promedio salida
+              </p>
+              <p id="stat-peso-sal" class="mt-2 text-2xl font-bold">-</p>
+            </div>
+
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Ganancia promedio de peso
+              </p>
+              <p
+                id="stat-peso-ganancia"
+                class="mt-2 text-2xl font-bold text-emerald-600"
+              >
+                -
+              </p>
+            </div>
+          </section>
+
+          <section class="grid gap-4 md:grid-cols-3">
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Valor promedio ingreso
+              </p>
+              <p
+                id="stat-valor-ing"
+                class="mt-2 text-2xl font-bold text-primary"
+              >
+                -
+              </p>
+            </div>
+
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Valor promedio salida
+              </p>
+              <p
+                id="stat-valor-sal"
+                class="mt-2 text-2xl font-bold text-fuchsia-500"
+              >
+                -
+              </p>
+            </div>
+
+            <div
+              class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-5"
+            >
+              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                Predicción simple
+              </p>
+              <p
+                id="stat-prediccion"
+                class="mt-2 text-sm md:text-base text-gray-700 dark:text-gray-200 leading-relaxed"
+              >
+                -
+              </p>
+            </div>
+          </section>
+
+          <!-- Barra de acciones -->
+          <section
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+          >
+            <div
+              class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="inline-flex rounded-full overflow-hidden bg-gray-100 dark:bg-[#2c2b3b] p-1 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
+                >
+                  <button
+                    id="btn-ingreso"
+                    type="button"
+                    class="tab-btn px-6 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    Ingreso
+                  </button>
+                  <button
+                    id="btn-salida"
+                    type="button"
+                    class="tab-btn px-6 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    Salida
+                  </button>
+                </div>
+
+                <p
+                  id="selection-info"
+                  class="text-xs text-gray-500 dark:text-gray-400 hidden md:block"
+                >
+                  Totales basados en todos los registros filtrados.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  id="btn-actualizar"
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >refresh</span
+                  >
+                  Actualizar
+                </button>
+
+                <button
+                  id="btn-exportar-todo"
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-semibold text-primary shadow-sm ring-1 ring-inset ring-primary/20 hover:bg-primary/5 transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >download</span
+                  >
+                  Exportar todo
+                </button>
+
+                <button
+                  id="btn-exportar-vista"
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
+                >
+                  <span class="material-symbols-outlined text-[18px]"
+                    >download</span
+                  >
+                  Exportar vista
+                </button>
+              </div>
+
+              <p
+                id="selection-info-mobile"
+                class="text-xs text-gray-500 dark:text-gray-400 md:hidden"
+              >
+                Totales basados en todos los registros filtrados.
+              </p>
+            </div>
+          </section>
+
+          <!-- NAV FECHAS (TOP) -->
+          <section
+            id="date-nav-top"
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >calendar_month</span
+                  >
+                </span>
+                <div class="leading-tight">
+                  <p class="font-extrabold">Rango de fechas</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Usa ← / → para navegar el rango actual
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  id="range-prev-top"
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  aria-label="Rango anterior"
+                >
+                  <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <label
+                    class="text-xs font-semibold text-gray-500 dark:text-gray-400"
+                    >Desde</label
+                  >
+                  <input
+                    id="date-from-top"
+                    type="date"
+                    class="h-10 rounded-full border-0 bg-gray-50 dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                  />
+
+                  <label
+                    class="text-xs font-semibold text-gray-500 dark:text-gray-400"
+                    >Hasta</label
+                  >
+                  <input
+                    id="date-to-top"
+                    type="date"
+                    class="h-10 rounded-full border-0 bg-gray-50 dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                  />
+                </div>
+
+                <button
+                  id="range-next-top"
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  aria-label="Rango siguiente"
+                >
+                  <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+
+                <button
+                  id="range-clear-top"
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2 rounded-full h-10 px-4 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm font-semibold"
+                >
+                  <span class="material-symbols-outlined text-[18px]">close</span>
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- PAGINACIÓN (TOP) -->
+          <section
+            id="pager-top"
+            class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >filter_list</span
+                  >
+                </span>
+                <div class="leading-tight">
+                  <p class="font-extrabold">Filtro de tabla</p>
+                  <p
+                    id="page-info-top"
+                    class="text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    Mostrando 0–0 de 0
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <div
+                  class="inline-flex rounded-full overflow-hidden bg-gray-100 dark:bg-[#2c2b3b] p-1 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
+                >
+                  <button
+                    id="page-size-100-top"
+                    type="button"
+                    class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    100
+                  </button>
+                  <button
+                    id="page-size-200-top"
+                    type="button"
+                    class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    200
+                  </button>
+                  <button
+                    id="page-size-300-top"
+                    type="button"
+                    class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    300
+                  </button>
+                  <button
+                    id="page-size-all-top"
+                    type="button"
+                    class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                  >
+                    Todos
+                  </button>
+                </div>
+
+                <button
+                  id="page-prev-top"
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  aria-label="Anterior"
+                >
+                  <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+
+                <button
+                  id="page-next-top"
+                  type="button"
+                  class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  aria-label="Siguiente"
+                >
+                  <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ✅ TABLA (mismos márgenes, sin botones laterales) -->
+          <section class="relative w-full">
+            <div
+              id="tabla-wrapper"
+              class="drag-scroll overflow-x-auto bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200/70 dark:border-gray-800 w-full"
+              title="Arrastra horizontalmente con click sostenido"
+            >
+              <table
+                id="tabla"
+                class="min-w-[1400px] w-full text-sm md:text-base divide-y divide-gray-200 dark:divide-gray-800"
+              >
+                <thead id="tabla-head"></thead>
+                <tbody
+                  id="tabla-body"
+                  class="divide-y divide-gray-100 dark:divide-gray-800"
+                ></tbody>
+              </table>
+            </div>
+
+            <!-- NAV FECHAS (BOTTOM) -->
+            <div class="mt-4">
+              <section
+                id="date-nav-bottom"
+                class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                >
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                    >
+                      <span class="material-symbols-outlined text-[20px]"
+                        >calendar_month</span
+                      >
+                    </span>
+                    <div class="leading-tight">
+                      <p class="font-extrabold">Rango de fechas</p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Duplicado para no tener que subir
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      id="range-prev-bottom"
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      aria-label="Rango anterior"
+                    >
+                      <span class="material-symbols-outlined">chevron_left</span>
+                    </button>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                      <label
+                        class="text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >Desde</label
+                      >
+                      <input
+                        id="date-from-bottom"
+                        type="date"
+                        class="h-10 rounded-full border-0 bg-gray-50 dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      />
+
+                      <label
+                        class="text-xs font-semibold text-gray-500 dark:text-gray-400"
+                        >Hasta</label
+                      >
+                      <input
+                        id="date-to-bottom"
+                        type="date"
+                        class="h-10 rounded-full border-0 bg-gray-50 dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary"
+                      />
+                    </div>
+
+                    <button
+                      id="range-next-bottom"
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      aria-label="Rango siguiente"
+                    >
+                      <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+
+                    <button
+                      id="range-clear-bottom"
+                      type="button"
+                      class="inline-flex items-center justify-center gap-2 rounded-full h-10 px-4 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm font-semibold"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >close</span
+                      >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- PAGINACIÓN (BOTTOM) -->
+            <div class="mt-4">
+              <section
+                id="pager-bottom"
+                class="bg-white dark:bg-surface-dark rounded-xl border border-gray-200/70 dark:border-gray-800 shadow-sm p-4"
+              >
+                <div
+                  class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                >
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                    >
+                      <span class="material-symbols-outlined text-[20px]"
+                        >filter_list</span
+                      >
+                    </span>
+                    <div class="leading-tight">
+                      <p class="font-extrabold">Filtro de tabla</p>
+                      <p
+                        id="page-info-bottom"
+                        class="text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        Mostrando 0–0 de 0
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2">
+                    <div
+                      class="inline-flex rounded-full overflow-hidden bg-gray-100 dark:bg-[#2c2b3b] p-1 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
+                    >
+                      <button
+                        id="page-size-100-bottom"
+                        type="button"
+                        class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                      >
+                        100
+                      </button>
+                      <button
+                        id="page-size-200-bottom"
+                        type="button"
+                        class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                      >
+                        200
+                      </button>
+                      <button
+                        id="page-size-300-bottom"
+                        type="button"
+                        class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                      >
+                        300
+                      </button>
+                      <button
+                        id="page-size-all-bottom"
+                        type="button"
+                        class="page-size-btn px-4 py-2 text-sm font-extrabold rounded-full transition-all"
+                      >
+                        Todos
+                      </button>
+                    </div>
+
+                    <button
+                      id="page-prev-bottom"
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      aria-label="Anterior"
+                    >
+                      <span class="material-symbols-outlined">chevron_left</span>
+                    </button>
+
+                    <button
+                      id="page-next-bottom"
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-full h-10 w-10 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                      aria-label="Siguiente"
+                    >
+                      <span class="material-symbols-outlined">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div id="page-bottom" class="h-2"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Floating buttons (Top/Bottom) -->
+    <div class="fixed right-4 bottom-6 z-50 flex flex-col gap-2">
+      <button
+        id="fab-top"
+        type="button"
+        class="size-12 rounded-full bg-white dark:bg-[#2c2b3b] shadow-lg ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center justify-center"
+        aria-label="Subir al inicio"
+        title="Subir"
       >
-        <div class="flex flex-wrap items-center gap-3">
-          <button
-            id="btn-actualizar"
-            type="button"
-            class="px-4 py-2 text-sm md:text-base rounded-full border border-slate-300 bg-white hover:bg-slate-50 flex items-center gap-2"
-          >
-            <span class="text-base">⟳</span>
-            <span>Actualizar</span>
-          </button>
-        </div>
+        <span class="material-symbols-outlined">arrow_upward</span>
+      </button>
 
-        <div class="flex flex-col items-start md:items-end gap-2">
-          <p
-            id="selection-info"
-            class="text-[11px] md:text-xs text-slate-500 text-left md:text-right"
-          >
-            Totales basados en todos los registros filtrados.
-          </p>
-          <div class="flex flex-wrap gap-2">
-            <button
-              id="btn-exportar-todo"
-              type="button"
-              class="px-4 py-2 text-sm md:text-base rounded-full border border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 flex items-center gap-2"
-            >
-              <span class="text-base">⬇</span>
-              <span>Exportar todo</span>
-            </button>
-
-            <button
-              id="btn-exportar-vista"
-              type="button"
-              class="px-4 py-2 text-sm md:text-base rounded-full bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm flex items-center gap-2"
-            >
-              <span class="text-base">⬇</span>
-              <span>Exportar vista actual</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- TABLA -->
-      <section class="relative w-full">
-        <!-- Botones de scroll horizontal (solo desktop) -->
-        <button
-          id="scroll-left"
-          type="button"
-          class="hidden md:flex items-center justify-center h-9 w-9 rounded-full bg-white shadow border border-slate-200 absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-10"
-        >
-          ‹
-        </button>
-        <button
-          id="scroll-right"
-          type="button"
-          class="hidden md:flex items-center justify-center h-9 w-9 rounded-full bg-white shadow border border-slate-200 absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10"
-        >
-          ›
-        </button>
-
-        <div
-          id="tabla-wrapper"
-          class="overflow-x-auto bg-white rounded-2xl shadow border border-slate-200"
-        >
-          <table
-            id="tabla"
-            class="min-w-[1100px] text-sm md:text-base divide-y divide-slate-200"
-          >
-            <thead id="tabla-head"></thead>
-            <tbody
-              id="tabla-body"
-              class="divide-y divide-slate-100 text-slate-800"
-            ></tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+      <button
+        id="fab-bottom"
+        type="button"
+        class="size-12 rounded-full bg-primary text-white shadow-lg hover:opacity-95 transition flex items-center justify-center"
+        aria-label="Bajar al final"
+        title="Bajar"
+      >
+        <span class="material-symbols-outlined">arrow_downward</span>
+      </button>
+    </div>
 
     <!-- MODAL CERRAR SESIÓN -->
     <div
       id="logout-modal"
-      class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-40 hidden"
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white rounded-2xl shadow-xl w-full max-w-sm px-6 py-5 space-y-4"
+        class="bg-white dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4 border border-gray-200/70 dark:border-gray-800"
       >
-        <h3 class="text-base md:text-lg font-semibold text-slate-900">
-          ¿Cerrar sesión?
-        </h3>
-        <p class="text-sm md:text-base text-slate-700">
-          Se cerrará tu sesión actual en el Módulo Ganados y volverás a la
-          pantalla de inicio de sesión.
-        </p>
+        <div class="flex items-center gap-3">
+          <div
+            class="size-10 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined">logout</span>
+          </div>
+          <div>
+            <h3 class="text-lg font-extrabold">¿Cerrar sesión?</h3>
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              Se cerrará tu sesión actual y volverás al inicio de sesión.
+            </p>
+          </div>
+        </div>
+
         <div class="flex justify-end gap-2 pt-2">
           <button
             id="logout-cancel"
             type="button"
-            class="px-4 py-2 text-sm rounded-full border border-slate-300 bg-white hover:bg-slate-50"
+            class="px-4 py-2 text-sm rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2c2b3b] hover:bg-gray-50 dark:hover:bg-gray-800 transition"
           >
             Cancelar
           </button>
           <button
             id="logout-confirm"
             type="button"
-            class="px-4 py-2 text-sm rounded-full bg-rose-600 text-white font-semibold hover:bg-rose-700"
+            class="px-4 py-2 text-sm rounded-full bg-rose-600 text-white font-extrabold hover:bg-rose-700 transition"
           >
             Cerrar sesión
           </button>
@@ -374,8 +884,8 @@
 
     <!-- XLSX para exportar -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <script src="./dashboard.js" defer></script>
     <script src="./g-pwa.js" defer></script>
-
   </body>
 </html>

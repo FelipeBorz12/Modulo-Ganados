@@ -14,9 +14,31 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ====== CONFIG ANTI-CACHE (LOCAL / DEV) ======
+app.set('etag', false);
+
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate'
+    );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    next();
+  });
+}
+
 // ====== MIDDLEWARES ======
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(
+  express.static(path.join(__dirname, '../public'), {
+    etag: false,
+    lastModified: false,
+    maxAge: 0,
+  })
+);
 
 // ====== RUTAS DE PÁGINAS ESTÁTICAS ======
 
@@ -79,10 +101,251 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// ====== API FINCAS ======
+// Tabla: public."Fincas" (id, Indicativo unique)
+// NOTA: historicoiys usa el texto en el campo Finca (Indicativo).
+
+function normalizeIndicativo(v) {
+  return (v ?? '').toString().trim().toUpperCase();
+}
+
+// Listar fincas (opcional: withCounts=1 -> incluye count asociados en historicoiys)
+app.get('/api/fincas', async (req, res) => {
+  const withCounts = req.query.withCounts === '1' || req.query.withCounts === 'true';
+
+  try {
+    const { data: fincas, error } = await supabase
+      .from('Fincas')
+      .select('id, Indicativo')
+      .order('Indicativo', { ascending: true });
+
+    if (error) throw error;
+
+    if (!withCounts) {
+      return res.json(fincas || []);
+    }
+
+    // Contar asociados desde node (suele ser ok con 2k registros)
+    const { data: hist, error: errH } = await supabase
+      .from('historicoiys')
+      .select('Finca');
+
+    if (errH) throw errH;
+
+    const countsMap = new Map();
+    (hist || []).forEach((r) => {
+      const k = (r.Finca ?? '...').toString();
+      countsMap.set(k, (countsMap.get(k) || 0) + 1);
+    });
+
+    const enriched = (fincas || []).map((f) => ({
+      ...f,
+      asociados: countsMap.get(f.Indicativo) || 0,
+    }));
+
+    return res.json(enriched);
+  } catch (err) {
+    console.error('Error al obtener fincas:', err);
+    res.status(500).json({ error: 'Error al obtener fincas.' });
+  }
+});
+
+// Crear finca
+app.post('/api/fincas', async (req, res) => {
+  const indicativo = normalizeIndicativo(req.body?.Indicativo);
+
+  if (!indicativo) {
+    return res.status(400).json({ error: 'El Indicativo es obligatorio.' });
+  }
+
+  if (indicativo.length > 80) {
+    return res
+      .status(400)
+      .json({ error: 'El Indicativo no puede superar 80 caracteres.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('Fincas')
+      .insert({ Indicativo: indicativo })
+      .select('id, Indicativo')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'Esa finca ya existe.' });
+      }
+      throw error;
+    }
+
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Error al crear finca:', err);
+    res.status(500).json({ error: 'Error al crear la finca.' });
+  }
+});
+
+// Renombrar finca + actualizar historicoiys.Finca (todos los asociados)
+// Body: { Indicativo: "NUEVO" }
+app.put('/api/fincas/:id', async (req, res) => {
+  const fincaId = Number(req.params.id);
+  const nuevo = normalizeIndicativo(req.body?.Indicativo);
+
+  if (!Number.isFinite(fincaId) || fincaId <= 0) {
+    return res.status(400).json({ error: 'ID de finca inválido.' });
+  }
+
+  if (!nuevo) {
+    return res.status(400).json({ error: 'El Indicativo es obligatorio.' });
+  }
+
+  if (nuevo.length > 80) {
+    return res
+      .status(400)
+      .json({ error: 'El Indicativo no puede superar 80 caracteres.' });
+  }
+
+  try {
+    // 1) finca actual
+    const { data: actual, error: errGet } = await supabase
+      .from('Fincas')
+      .select('id, Indicativo')
+      .eq('id', fincaId)
+      .single();
+
+    if (errGet && errGet.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Finca no encontrada.' });
+    }
+    if (errGet) throw errGet;
+
+    const viejo = (actual?.Indicativo ?? '').toString();
+    if (!viejo) {
+      return res.status(500).json({ error: 'Finca inválida.' });
+    }
+
+    if (viejo === nuevo) {
+      return res.json({
+        ok: true,
+        finca: { id: fincaId, Indicativo: viejo },
+        updatedHistorico: 0,
+        message: 'Sin cambios.',
+      });
+    }
+
+    // 2) prevenir duplicado antes de tocar historico
+    const { data: existeNuevo, error: errExists } = await supabase
+      .from('Fincas')
+      .select('id')
+      .eq('Indicativo', nuevo)
+      .maybeSingle();
+
+    if (errExists) throw errExists;
+    if (existeNuevo?.id && Number(existeNuevo.id) !== fincaId) {
+      return res.status(409).json({ error: 'Ya existe una finca con ese nombre.' });
+    }
+
+    // 3) actualizar historico primero (si falla, no tocamos tabla Fincas)
+    const { error: errUpdHist, count } = await supabase
+      .from('historicoiys')
+      .update({ Finca: nuevo })
+      .eq('Finca', viejo)
+      .select('*', { count: 'exact', head: true });
+
+    if (errUpdHist) throw errUpdHist;
+
+    // 4) actualizar finca
+    const { data: fincaUpd, error: errUpdF } = await supabase
+      .from('Fincas')
+      .update({ Indicativo: nuevo })
+      .eq('id', fincaId)
+      .select('id, Indicativo')
+      .single();
+
+    if (errUpdF) {
+      // Sin transacción real; si esto falla, el histórico quedó con nuevo.
+      // Igual reportamos el error para que puedas corregir manualmente.
+      console.error('Renombre: histórico actualizado pero finca falló:', errUpdF);
+      return res.status(500).json({
+        error:
+          'Se actualizó el histórico, pero falló actualizar la finca. Revisa duplicados o permisos.',
+      });
+    }
+
+    return res.json({
+      ok: true,
+      finca: fincaUpd,
+      updatedHistorico: count || 0,
+    });
+  } catch (err) {
+    console.error('Error al renombrar finca:', err);
+    res.status(500).json({ error: 'Error al renombrar la finca.' });
+  }
+});
+
+// Eliminar finca con cascada (requiere ?cascade=1)
+// 1) Borra historicoiys donde Finca == Indicativo
+// 2) Borra la finca
+app.delete('/api/fincas/:id', async (req, res) => {
+  const fincaId = Number(req.params.id);
+  const cascade = req.query.cascade === '1' || req.query.cascade === 'true';
+
+  if (!Number.isFinite(fincaId) || fincaId <= 0) {
+    return res.status(400).json({ error: 'ID de finca inválido.' });
+  }
+
+  if (!cascade) {
+    return res.status(400).json({
+      error: 'Para eliminar fincas debes confirmar cascada con ?cascade=1',
+    });
+  }
+
+  try {
+    const { data: finca, error: errGet } = await supabase
+      .from('Fincas')
+      .select('id, Indicativo')
+      .eq('id', fincaId)
+      .single();
+
+    if (errGet && errGet.code === 'PGRST116') {
+      return res.status(404).json({ error: 'Finca no encontrada.' });
+    }
+    if (errGet) throw errGet;
+
+    const indicativo = (finca?.Indicativo ?? '').toString();
+    if (!indicativo) return res.status(500).json({ error: 'Finca inválida.' });
+
+    // evita borrar el placeholder
+    if (indicativo === '...') {
+      return res.status(403).json({ error: 'No se puede eliminar la finca "...".' });
+    }
+
+    // 1) borrar historico asociado
+    const { error: errDelHist, count: delCount } = await supabase
+      .from('historicoiys')
+      .delete()
+      .eq('Finca', indicativo)
+      .select('*', { count: 'exact', head: true });
+
+    if (errDelHist) throw errDelHist;
+
+    // 2) borrar finca
+    const { error: errDelF } = await supabase.from('Fincas').delete().eq('id', fincaId);
+    if (errDelF) throw errDelF;
+
+    return res.json({
+      ok: true,
+      deletedHistorico: delCount || 0,
+      deletedFinca: { id: fincaId, Indicativo: indicativo },
+    });
+  } catch (err) {
+    console.error('Error al eliminar finca (cascada):', err);
+    res.status(500).json({ error: 'Error al eliminar la finca.' });
+  }
+});
+
 // ====== API HISTÓRICO IYS ======
 // Tabla: public.historicoiys
 
-// Obtener todos los registros
 app.get('/api/historicoiys', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -98,7 +361,6 @@ app.get('/api/historicoiys', async (req, res) => {
   }
 });
 
-// Obtener un registro por Número
 app.get('/api/historicoiys/:numero', async (req, res) => {
   const { numero } = req.params;
 
@@ -110,7 +372,6 @@ app.get('/api/historicoiys/:numero', async (req, res) => {
       .single();
 
     if (error && error.code === 'PGRST116') {
-      // not found
       return res.status(404).json({ error: 'Registro no encontrado.' });
     }
     if (error) throw error;
@@ -122,7 +383,6 @@ app.get('/api/historicoiys/:numero', async (req, res) => {
   }
 });
 
-// Crear un nuevo INGRESO
 app.post('/api/ingresos', async (req, res) => {
   const body = req.body || {};
 
@@ -162,7 +422,6 @@ app.post('/api/ingresos', async (req, res) => {
       .single();
 
     if (error) {
-      // clave duplicada por Numero
       if (error.code === '23505') {
         return res.status(409).json({
           error: 'Ya existe un registro con ese Número.',
@@ -178,7 +437,6 @@ app.post('/api/ingresos', async (req, res) => {
   }
 });
 
-// Registrar SALIDA (solo campos de salida)
 app.post('/api/salidas', async (req, res) => {
   const {
     Numero,
@@ -203,7 +461,6 @@ app.post('/api/salidas', async (req, res) => {
   }
 
   try {
-    // Verificar que exista
     const { data: existente, error: errSel } = await supabase
       .from('historicoiys')
       .select('*')
@@ -241,7 +498,6 @@ app.post('/api/salidas', async (req, res) => {
   }
 });
 
-// Modificar TODOS los campos de un registro
 app.put('/api/historicoiys/:numero', async (req, res) => {
   const { numero } = req.params;
   const body = req.body || {};
@@ -288,7 +544,6 @@ app.put('/api/historicoiys/:numero', async (req, res) => {
   }
 });
 
-// Eliminar registro
 app.delete('/api/historicoiys/:numero', async (req, res) => {
   const { numero } = req.params;
 
@@ -302,11 +557,11 @@ app.delete('/api/historicoiys/:numero', async (req, res) => {
     res.status(204).send();
   } catch (err) {
     console.error('Error al eliminar registro:', err);
-    res.status(500).json({ error: 'Error al eliminar el registro.' });
+    res.status(500).json({ error: 'Error al eliminar registro.' });
   }
 });
 
 // ====== ARRANCAR SERVIDOR ======
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Ganados escuchando en http://195.26.244.57:${PORT}/`);
+  console.log(`🚀 Ganados escuchando en http://localhost:${PORT}/`);
 });
