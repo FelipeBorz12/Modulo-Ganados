@@ -2,6 +2,7 @@
   "name": "Módulo Ganados",
   "short_name": "Ganados",
   "description": "Módulo interno para gestión de ingresos y salidas de ganado.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
