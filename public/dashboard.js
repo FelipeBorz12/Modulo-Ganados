@@ -1185,7 +1185,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (ok) showToast("Número copiado ✅", "success");
             else showToast("No se pudo copiar ❌", "error");
           });
-
           tr.appendChild(td);
           return;
         }
