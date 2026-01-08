@@ -3,6 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import session from "express-session";
 import { supabase, validarUsuario } from "./supabase.js";
 
 dotenv.config();
@@ -11,39 +12,17 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ✅ Robusto en producción (sirve aunque server esté en dist/ y public esté en /public)
+const PUBLIC_DIR = path.resolve(process.cwd(), "public");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-import session from "express-session";
-
-app.use(express.json());
-
-// Si estás detrás de proxy (Easypanel, Nginx, Cloudflare, etc.)
-// esto es importante para que cookie secure funcione bien:
+// ====== CONFIG PROXY / SESIÓN ======
+// Si estás detrás de proxy (Easypanel, Nginx, Cloudflare, etc.) esto es importante
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
-
-app.use(
-  session({
-    name: "ganados.sid",                  // nombre de cookie (personalizable)
-    secret: process.env.SESSION_SECRET,   // OBLIGATORIO
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,                        // renueva expiración al usar la app
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production", // HTTPS en prod
-      maxAge: 1000 * 60 * 60 * 12,        // 12 horas (ajusta a gusto)
-    },
-  })
-);
-
-
-
-// ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
-app.set("trust proxy", 1);
 
 // ✅ Quita header que revela tecnología
 app.disable("x-powered-by");
@@ -51,28 +30,39 @@ app.disable("x-powered-by");
 // ====== CONFIG ANTI-CACHE / ETAG ======
 app.set("etag", false);
 
+// ====== MIDDLEWARES ======
+app.use(express.json());
+
+app.use(
+  session({
+    name: "ganados.sid",
+    secret: process.env.SESSION_SECRET, // OBLIGATORIO
+    resave: false,
+    saveUninitialized: false,
+    rolling: true, // renueva expiración al usar la app
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production", // HTTPS en prod
+      maxAge: 1000 * 60 * 60 * 12, // 12 horas
+    },
+  })
+);
+
 // ====== HEADERS DE SEGURIDAD BÁSICOS ======
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Ajusta si embebes la app en iframes (normalmente NO)
   res.setHeader("X-Frame-Options", "DENY");
-
-  // Nota: HSTS solo tiene sentido si SIEMPRE sirves por HTTPS
-  // (en EasyPanel sí). Si quieres activarlo, descomenta:
+  // HSTS (solo si siempre sirves HTTPS):
   // res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-
   next();
 });
 
 // ====== CONFIG ANTI-CACHE (LOCAL / DEV) ======
 if (process.env.NODE_ENV !== "production") {
   app.use((req, res, next) => {
-    res.setHeader(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate"
-    );
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
@@ -80,17 +70,17 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ====== MIDDLEWARES ======
-app.use(express.json());
-
 // ✅ Static con headers por archivo (CLAVE para PWA updates)
+// ✅ Sin replaceAll (compatible con Node más viejo)
+// ✅ PUBLIC_DIR robusto para prod
 app.use(
-  express.static(path.join(__dirname, "../public"), {
+  express.static(PUBLIC_DIR, {
     etag: false,
     lastModified: false,
     maxAge: 0,
     setHeaders: (res, filePath) => {
-      const p = filePath.replaceAll("\\", "/").toLowerCase();
+      // compatible: no usar replaceAll
+      const p = filePath.split(path.sep).join("/").toLowerCase();
 
       // 🔥 PWA: NUNCA cachear el SW/manifest en el servidor
       if (
@@ -108,7 +98,7 @@ app.use(
         return;
       }
 
-      // Imágenes / fuentes: puedes permitir cache (opcional)
+      // Imágenes / fuentes: cache opcional
       if (
         p.endsWith(".png") ||
         p.endsWith(".jpg") ||
@@ -121,7 +111,6 @@ app.use(
         p.endsWith(".ttf") ||
         p.endsWith(".otf")
       ) {
-        // Si cambias iconos seguido, pon no-cache. Si no, deja cache.
         res.setHeader("Cache-Control", "public, max-age=604800"); // 7 días
         return;
       }
@@ -135,23 +124,23 @@ app.use(
 // ====== RUTAS DE PÁGINAS ======
 // ✅ La página principal SIEMPRE es login
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "login.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "login.html"));
 });
 
 app.get("/dashboard", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "dashboard.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "dashboard.html"));
 });
 
 app.get("/ingreso", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "ingreso.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "ingreso.html"));
 });
 
 app.get("/salida", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "salida.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "salida.html"));
 });
 
 app.get("/modificaciones", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "modificaciones.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "modificaciones.html"));
 });
 
 // ====== LOGIN ======
@@ -175,6 +164,9 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Usuario o clave incorrectos." });
     }
 
+    // ✅ (Opcional) guardar sesión si quieres:
+    // req.session.user = { id: usuario.id, nombre: usuario.Nombre };
+
     return res.json({
       ok: true,
       usuario: { id: usuario.id, nombre: usuario.Nombre },
@@ -193,8 +185,7 @@ function normalizeIndicativo(v) {
 }
 
 app.get("/api/fincas", async (req, res) => {
-  const withCounts =
-    req.query.withCounts === "1" || req.query.withCounts === "true";
+  const withCounts = req.query.withCounts === "1" || req.query.withCounts === "true";
 
   try {
     const { data: fincas, error } = await supabase
@@ -208,10 +199,7 @@ app.get("/api/fincas", async (req, res) => {
       return res.json(fincas || []);
     }
 
-    const { data: hist, error: errH } = await supabase
-      .from("historicoiys")
-      .select("Finca");
-
+    const { data: hist, error: errH } = await supabase.from("historicoiys").select("Finca");
     if (errH) throw errH;
 
     const countsMap = new Map();
@@ -240,9 +228,7 @@ app.post("/api/fincas", async (req, res) => {
   }
 
   if (indicativo.length > 80) {
-    return res
-      .status(400)
-      .json({ error: "El Indicativo no puede superar 80 caracteres." });
+    return res.status(400).json({ error: "El Indicativo no puede superar 80 caracteres." });
   }
 
   try {
@@ -277,9 +263,7 @@ app.put("/api/fincas/:id", async (req, res) => {
     return res.status(400).json({ error: "El Indicativo es obligatorio." });
   }
   if (nuevo.length > 80) {
-    return res
-      .status(400)
-      .json({ error: "El Indicativo no puede superar 80 caracteres." });
+    return res.status(400).json({ error: "El Indicativo no puede superar 80 caracteres." });
   }
 
   try {
@@ -314,9 +298,7 @@ app.put("/api/fincas/:id", async (req, res) => {
 
     if (errExists) throw errExists;
     if (existeNuevo?.id && Number(existeNuevo.id) !== fincaId) {
-      return res
-        .status(409)
-        .json({ error: "Ya existe una finca con ese nombre." });
+      return res.status(409).json({ error: "Ya existe una finca con ese nombre." });
     }
 
     const { error: errUpdHist, count } = await supabase
@@ -383,9 +365,7 @@ app.delete("/api/fincas/:id", async (req, res) => {
     if (!indicativo) return res.status(500).json({ error: "Finca inválida." });
 
     if (indicativo === "...") {
-      return res
-        .status(403)
-        .json({ error: 'No se puede eliminar la finca "...".' });
+      return res.status(403).json({ error: 'No se puede eliminar la finca "...".' });
     }
 
     const { error: errDelHist, count: delCount } = await supabase
@@ -396,11 +376,7 @@ app.delete("/api/fincas/:id", async (req, res) => {
 
     if (errDelHist) throw errDelHist;
 
-    const { error: errDelF } = await supabase
-      .from("Fincas")
-      .delete()
-      .eq("id", fincaId);
-
+    const { error: errDelF } = await supabase.from("Fincas").delete().eq("id", fincaId);
     if (errDelF) throw errDelF;
 
     return res.json({
@@ -507,17 +483,8 @@ app.post("/api/ingresos", async (req, res) => {
 });
 
 app.post("/api/salidas", async (req, res) => {
-  const {
-    Numero,
-    FechaSalida,
-    PesoSalida,
-    PesoFinca,
-    Destino,
-    ValorKGsalida,
-    Flete,
-    Comision,
-    Mermas,
-  } = req.body || {};
+  const { Numero, FechaSalida, PesoSalida, PesoFinca, Destino, ValorKGsalida, Flete, Comision, Mermas } =
+    req.body || {};
 
   if (!Numero) {
     return res.status(400).json({ error: "Falta el Número del animal." });
@@ -626,7 +593,14 @@ app.delete("/api/historicoiys/:numero", async (req, res) => {
   }
 });
 
+// ✅ (Recomendado) Handler de errores para ver el motivo real del 500 en logs
+app.use((err, req, res, next) => {
+  console.error("🔥 ERROR:", err);
+  res.status(500).send("Internal Server Error");
+});
+
 // ====== ARRANCAR SERVIDOR ======
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Ganados escuchando en http://localhost:${PORT}/`);
+  console.log(`📁 Public dir: ${PUBLIC_DIR}`);
 });

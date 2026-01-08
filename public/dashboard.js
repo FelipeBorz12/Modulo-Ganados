@@ -1,27 +1,152 @@
 // public/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
   // ==============================
-  // DASHBOARD - HISTÓRICO (Ingresos/Salidas)
-  // Tabla + filtros + selección + paginación + export + stats + logout real
+  // DASHBOARD (TU HTML NUEVO)
   // ==============================
 
-  // ====== HELPERS ======
-  const on = (el, ev, fn, opts) => {
-    if (!el) return;
-    el.addEventListener(ev, fn, opts);
+  // ---------- helpers DOM ----------
+  const $ = (id) => document.getElementById(id);
+
+  // Tabla
+  const tablaHead = $("tabla-head");
+  const tablaBody = $("tabla-body");
+  const tablaWrapper = $("tabla-wrapper");
+
+  // Tabs
+  const btnIngreso = $("btn-ingreso");
+  const btnSalida = $("btn-salida");
+
+  // Botones
+  const btnActualizar = $("btn-actualizar");
+  const btnExportarTodo = $("btn-exportar-todo");
+  const btnExportarVista = $("btn-exportar-vista");
+
+  // Info selección (texto)
+  const selectionInfo = $("selection-info");
+  const selectionInfoMobile = $("selection-info-mobile");
+
+  // Totales (cards)
+  const elTotalGeneral = $("total-general");
+  const elTotalIngresos = $("total-ingresos");
+  const elTotalSalidas = $("total-salidas");
+  const elTotalValorIngreso = $("total-valor-ingreso");
+  const elTotalValorSalida = $("total-valor-salida");
+  const elTotalUtilidad = $("total-utilidad");
+  const elTotalUtilidadPct = $("total-utilidad-pct");
+
+  // Stats cards
+  const elStatPesoIng = $("stat-peso-ing");
+  const elStatPesoSal = $("stat-peso-sal");
+  const elStatPesoGan = $("stat-peso-ganancia");
+  const elStatValorIng = $("stat-valor-ing");
+  const elStatValorSal = $("stat-valor-sal");
+  const elStatPred = $("stat-prediccion");
+
+  // Date range (top)
+  const dateFromTop = $("date-from-top");
+  const dateToTop = $("date-to-top");
+  const rangePrevTop = $("range-prev-top");
+  const rangeNextTop = $("range-next-top");
+  const rangeClearTop = $("range-clear-top");
+
+  // Date range (bottom)
+  const dateFromBottom = $("date-from-bottom");
+  const dateToBottom = $("date-to-bottom");
+  const rangePrevBottom = $("range-prev-bottom");
+  const rangeNextBottom = $("range-next-bottom");
+  const rangeClearBottom = $("range-clear-bottom");
+
+  // Pager (top)
+  const pageInfoTop = $("page-info-top");
+  const pagePrevTop = $("page-prev-top");
+  const pageNextTop = $("page-next-top");
+  const pageSize100Top = $("page-size-100-top");
+  const pageSize200Top = $("page-size-200-top");
+  const pageSize300Top = $("page-size-300-top");
+  const pageSizeAllTop = $("page-size-all-top");
+
+  // Pager (bottom)
+  const pageInfoBottom = $("page-info-bottom");
+  const pagePrevBottom = $("page-prev-bottom");
+  const pageNextBottom = $("page-next-bottom");
+  const pageSize100Bottom = $("page-size-100-bottom");
+  const pageSize200Bottom = $("page-size-200-bottom");
+  const pageSize300Bottom = $("page-size-300-bottom");
+  const pageSizeAllBottom = $("page-size-all-bottom");
+
+  // Floating buttons
+  const fabTop = $("fab-top");
+  const fabBottom = $("fab-bottom");
+
+  // Logout
+  const btnLogout = $("btn-logout");
+  const logoutModal = $("logout-modal");
+  const logoutCancel = $("logout-cancel");
+  const logoutConfirm = $("logout-confirm");
+
+  // ---------- estado ----------
+  let allRows = [];
+  let viewMode = "ingreso"; // "ingreso" | "salida"
+
+  let page = 1;
+  let pageSize = 100; // 100|200|300|Infinity
+
+  // Selección (por id si existe; si no, por Numero)
+  const selectedKeys = new Set();
+
+  // ---------- formatos ----------
+  const msDay = 24 * 60 * 60 * 1000;
+
+  const fmtMoney = (n) => {
+    const v = Number(n) || 0;
+    return v.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
   };
 
-  const show = (el) => el && el.classList.remove("hidden");
-  const hide = (el) => el && el.classList.add("hidden");
+  const fmtNum = (n, digits = 1) => {
+    const v = Number(n);
+    return Number.isFinite(v) ? v.toFixed(digits) : "-";
+  };
 
-  // ====== SESIÓN / API HELPERS ======
+  const parseISODate = (s) => {
+    if (!s) return null;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const fmtDate = (d) =>
+    new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+
+  const diffDays = (startISO, endISO) => {
+    const a = parseISODate(startISO);
+    const b = parseISODate(endISO);
+    if (!a || !b) return null;
+    const aa = new Date(a); aa.setHours(0, 0, 0, 0);
+    const bb = new Date(b); bb.setHours(0, 0, 0, 0);
+    return Math.round((bb.getTime() - aa.getTime()) / msDay);
+  };
+
+  const normSexo = (s) => {
+    const v = (s ?? "").toString().trim().toUpperCase();
+    if (!v) return "N/A";
+    if (v.startsWith("M")) return "MACHO";
+    if (v.startsWith("H")) return "HEMBRA";
+    return "OTRO";
+  };
+
+  const rowKey = (r) => {
+    // prefer id, fallback Numero
+    if (r && (r.id !== undefined && r.id !== null)) return `id:${r.id}`;
+    return `num:${r?.Numero ?? ""}`;
+  };
+
+  const hasSalida = (r) => {
+    const ps = Number(r?.PesoSalida) || 0;
+    return !!(r?.FechaSalida && ps > 0);
+  };
+
+  // ---------- API ----------
   async function apiFetch(url, options = {}) {
-    const res = await fetch(url, {
-      credentials: "same-origin",
-      ...options,
-    });
-
-    // Si tu backend marca no autorizado
+    const res = await fetch(url, { credentials: "same-origin", ...options });
     if (res.status === 401) {
       window.location.href = "/";
       throw new Error("NO_SESSION");
@@ -32,836 +157,506 @@ document.addEventListener("DOMContentLoaded", () => {
   async function doLogout() {
     try {
       await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
-    } catch (_) {
-      // aunque falle, redirigimos
-    }
+    } catch (_) {}
     window.location.href = "/";
   }
 
-  // ====== DOM BÁSICO ======
-  const tablaHead = document.getElementById("tabla-head");
-  const tablaBody = document.getElementById("tabla-body");
-  const tablaWrapper = document.getElementById("tabla-wrapper");
+  // ---------- filtros ----------
+  function getDateRangeFromInputs() {
+    // usamos top como fuente principal
+    const fromVal = (dateFromTop?.value || "").trim();
+    const toVal = (dateToTop?.value || "").trim();
 
-  const totalGeneralEl = document.getElementById("total-general");
-  const totalIngresosEl = document.getElementById("total-ingresos");
-  const totalSalidasEl = document.getElementById("total-salidas");
-  const totalValorIngresoEl = document.getElementById("total-valor-ingreso");
-  const totalValorSalidaEl = document.getElementById("total-valor-salida");
+    const from = fromVal ? new Date(fromVal + "T00:00:00") : null;
+    const to = toVal ? new Date(toVal + "T23:59:59.999") : null;
 
-  const totalUtilidadEl = document.getElementById("total-utilidad");
-  const totalUtilidadPctEl = document.getElementById("total-utilidad-pct");
+    if (from && isNaN(from.getTime())) return { from: null, to: null };
+    if (to && isNaN(to.getTime())) return { from: null, to: null };
 
-  const statPesoIngEl = document.getElementById("stat-peso-ing");
-  const statPesoSalEl = document.getElementById("stat-peso-sal");
-  const statPesoGananciaEl = document.getElementById("stat-peso-ganancia");
-  const statValorIngEl = document.getElementById("stat-valor-ing");
-  const statValorSalEl = document.getElementById("stat-valor-sal");
-  const statPrediccionEl = document.getElementById("stat-prediccion");
-
-  const btnIngresoTab = document.getElementById("btn-ingreso");
-  const btnSalidaTab = document.getElementById("btn-salida");
-
-  const btnActualizar = document.getElementById("btn-actualizar");
-  const btnExportarTodo = document.getElementById("btn-exportar-todo");
-  const btnExportarVista = document.getElementById("btn-exportar-vista");
-
-  const selectionInfo = document.getElementById("selection-info");
-  const selectionInfoMobile = document.getElementById("selection-info-mobile");
-
-  // Date range TOP
-  const rangePrevTop = document.getElementById("range-prev-top");
-  const rangeNextTop = document.getElementById("range-next-top");
-  const rangeClearTop = document.getElementById("range-clear-top");
-  const dateFromTop = document.getElementById("date-from-top");
-  const dateToTop = document.getElementById("date-to-top");
-
-  // Date range BOTTOM
-  const rangePrevBottom = document.getElementById("range-prev-bottom");
-  const rangeNextBottom = document.getElementById("range-next-bottom");
-  const rangeClearBottom = document.getElementById("range-clear-bottom");
-  const dateFromBottom = document.getElementById("date-from-bottom");
-  const dateToBottom = document.getElementById("date-to-bottom");
-
-  // Pager TOP
-  const pageInfoTop = document.getElementById("page-info-top");
-  const pagePrevTop = document.getElementById("page-prev-top");
-  const pageNextTop = document.getElementById("page-next-top");
-  const pageSize100Top = document.getElementById("page-size-100-top");
-  const pageSize200Top = document.getElementById("page-size-200-top");
-  const pageSize300Top = document.getElementById("page-size-300-top");
-  const pageSizeAllTop = document.getElementById("page-size-all-top");
-
-  // Pager BOTTOM
-  const pageInfoBottom = document.getElementById("page-info-bottom");
-  const pagePrevBottom = document.getElementById("page-prev-bottom");
-  const pageNextBottom = document.getElementById("page-next-bottom");
-  const pageSize100Bottom = document.getElementById("page-size-100-bottom");
-  const pageSize200Bottom = document.getElementById("page-size-200-bottom");
-  const pageSize300Bottom = document.getElementById("page-size-300-bottom");
-  const pageSizeAllBottom = document.getElementById("page-size-all-bottom");
-
-  // Floating top/bottom (si existen)
-  const fabTop = document.getElementById("fab-top");
-  const fabBottom = document.getElementById("fab-bottom");
-  const pageTop = document.getElementById("page-top");
-  const pageBottom = document.getElementById("page-bottom");
-
-  // Logout modal
-  const btnLogout = document.getElementById("btn-logout");
-  const logoutModal = document.getElementById("logout-modal");
-  const logoutCancel = document.getElementById("logout-cancel");
-  const logoutConfirm = document.getElementById("logout-confirm");
-
-  // ====== ESTADO ======
-  let registros = [];
-  let vistaActual = "ingreso"; // 'ingreso' | 'salida'
-  let filtros = {}; // {colKey: texto}
-  let sortConfig = { key: null, direction: "asc" };
-  let vistaFiltradaActual = [];
-  const selectedNumeros = new Set();
-
-  // Paginación
-  let pageSize = 200; // default
-  let pageIndex = 1; // 1..n (si Todos => 1)
-  let totalRowsAfterFilters = 0;
-
-  // Fechas
-  let dateFrom = "";
-  let dateTo = "";
-
-  // ====== CONFIG DE COLUMNAS ======
-  const columnasIngreso = [
-    { key: "Numero", label: "Número" },
-    { key: "FechaIngreso", label: "F Ingreso" },
-    { key: "Finca", label: "Finca" },
-    { key: "Color", label: "Color" },
-    { key: "Edad", label: "Edad" },
-    { key: "Sexo", label: "Sexo" },
-    { key: "Marcallegada", label: "Marca" },
-    { key: "Peso", label: "P Ingreso" },
-    { key: "ValorKGingreso", label: "Precio ingreso" },
-    { key: "Flete", label: "Valor flete" },
-    { key: "totalIngreso", label: "Valor total ingreso" },
-  ];
-
-  const columnasSalida = [
-    { key: "Numero", label: "Número" },
-
-    { key: "ValorKGingreso", label: "Precio ingreso" },
-    { key: "FechaIngreso", label: "Fecha ingreso" },
-    { key: "Peso", label: "Peso ingreso" },
-    { key: "Flete", label: "Valor flete" },
-    { key: "totalIngreso", label: "Valor total ingreso" },
-
-    { key: "FechaSalida", label: "Fecha salida" },
-    { key: "PesoSalida", label: "Peso salida" },
-    { key: "diasEnHacienda", label: "Días en hacienda" },
-    { key: "diferenciaPeso", label: "Diferencia peso" },
-
-    { key: "ValorKGsalida", label: "Valor salida" },
-    { key: "totalSalidaCalc", label: "Valor total salida" },
-    { key: "utilidad", label: "Utilidad" },
-
-    { key: "Destino", label: "Destino" },
-    { key: "Finca", label: "Finca" },
-  ];
-
-  function getColumnConfig() {
-    return vistaActual === "ingreso" ? columnasIngreso : columnasSalida;
+    return { from, to };
   }
 
-  // ====== UTILIDADES ======
-  function formatMoney(value) {
-    const num = Number(value) || 0;
-    // ⚠️ toLocaleString mete NBSP entre $ y número -> lo cambiamos por espacio normal
-    return num
-      .toLocaleString("es-CO", {
-        style: "currency",
-        currency: "COP",
-        maximumFractionDigits: 0,
-      })
-      .replace(/\u00A0/g, " ");
-  }
+  function applyFiltersBase(rows) {
+    let out = Array.isArray(rows) ? [...rows] : [];
 
-  function formatNumber(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return "";
-    return num.toLocaleString("es-CO", { maximumFractionDigits: 0 });
-  }
-
-  function formatNumber1(value) {
-    const num = Number(value);
-    if (!Number.isFinite(num)) return "";
-    return num.toLocaleString("es-CO", { maximumFractionDigits: 1 });
-  }
-
-  function parseISODate(d) {
-    if (!d) return null;
-    const t = new Date(d + "T00:00:00");
-    return Number.isNaN(t.getTime()) ? null : t;
-  }
-
-  function diffDays(aISO, bISO) {
-    const a = parseISODate(aISO);
-    const b = parseISODate(bISO);
-    if (!a || !b) return null;
-    const ms = b.getTime() - a.getTime();
-    return Math.floor(ms / (1000 * 60 * 60 * 24));
-  }
-
-  function clamp(n, a, b) {
-    return Math.min(Math.max(n, a), b);
-  }
-
-  function quantile(sortedNums, q) {
-    if (!sortedNums.length) return null;
-    const pos = (sortedNums.length - 1) * q;
-    const base = Math.floor(pos);
-    const rest = pos - base;
-    if (sortedNums[base + 1] === undefined) return sortedNums[base];
-    return sortedNums[base] + rest * (sortedNums[base + 1] - sortedNums[base]);
-  }
-
-  function normSexo(s) {
-    const v = (s ?? "").toString().trim().toUpperCase();
-    if (!v) return "SIN DATO";
-    if (v.startsWith("M")) return "MACHOS";
-    if (v.startsWith("H")) return "HEMBRAS";
-    return "OTROS";
-  }
-
-  function isSalidaRow(r) {
-    return !!(r?.FechaSalida && (Number(r?.PesoSalida) || 0) > 0);
-  }
-
-  function isIngresoAbierto(r) {
-    return !(r?.FechaSalida && (Number(r?.PesoSalida) || 0) > 0);
-  }
-
-  // ========= CÁLCULOS (mantengo la misma lógica que tu tabla)
-  // totalIngreso = Peso*ValorKGingreso + Flete
-  // totalSalidaCalc = PesoSalida*ValorKGsalida
-  // utilidad = totalSalidaCalc - totalIngreso
-  function rawValue(row, key) {
-    if (key === "totalIngreso") {
-      const peso = Number(row.Peso) || 0;
-      const precio = Number(row.ValorKGingreso) || 0;
-      const flete = Number(row.Flete) || 0;
-      return peso * precio + flete;
-    }
-
-    if (key === "diasEnHacienda") {
-      const d = diffDays(row.FechaIngreso, row.FechaSalida);
-      return d == null ? null : d;
-    }
-
-    if (key === "diferenciaPeso") {
-      const pi = Number(row.Peso) || 0;
-      const ps = Number(row.PesoSalida) || 0;
-      if (!row.FechaSalida || !ps) return null;
-      return ps - pi;
-    }
-
-    if (key === "totalSalidaCalc") {
-      const ps = Number(row.PesoSalida) || 0;
-      const precioSal = Number(row.ValorKGsalida) || 0;
-      if (!row.FechaSalida || !ps) return null;
-      return ps * precioSal;
-    }
-
-    if (key === "utilidad") {
-      if (!row.FechaSalida || !row.PesoSalida) return null;
-      const ingreso = rawValue(row, "totalIngreso") || 0;
-      const salida = rawValue(row, "totalSalidaCalc") || 0;
-      return salida - ingreso;
-    }
-
-    return row[key];
-  }
-
-  function formatCell(key, value) {
-    if (value === null || value === undefined) return "";
-
-    if (typeof value === "string") {
-      const v = value.trim();
-      if (!v || v === "...") return "";
-      return v;
-    }
-
-    if (key === "totalIngreso" || key === "totalSalidaCalc" || key === "utilidad") {
-      return formatMoney(value);
-    }
-
-    if (
-      key === "ValorKGingreso" ||
-      key === "ValorKGsalida" ||
-      key === "Flete" ||
-      key === "Comision" ||
-      key === "Mermas"
-    ) {
-      return formatNumber(value);
-    }
-
-    if (key === "Peso" || key === "PesoSalida" || key === "PesoFinca") {
-      return formatNumber1(value);
-    }
-
-    if (key === "diferenciaPeso") {
-      const num = Number(value);
-      const s = num > 0 ? "+" : "";
-      return `${s}${formatNumber1(num)}`;
-    }
-
-    return value;
-  }
-
-  async function copyToClipboard(text) {
-    const value = (text ?? "").toString();
-    if (!value) return;
-
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch (_) {
-      // fallback
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = value;
-        ta.style.position = "fixed";
-        ta.style.left = "-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
+    // rango de fechas (por FechaIngreso)
+    const { from, to } = getDateRangeFromInputs();
+    if (from || to) {
+      out = out.filter((r) => {
+        const d = parseISODate(r.FechaIngreso);
+        if (!d) return false;
+        if (from && d < from) return false;
+        if (to && d > to) return false;
         return true;
-      } catch (e) {
-        return false;
-      }
-    }
-  }
-
-  function setTabStyles() {
-    const active = ["bg-primary", "text-white", "shadow"];
-    const inactive = ["bg-transparent", "text-gray-600", "dark:text-gray-300"];
-
-    if (!btnIngresoTab || !btnSalidaTab) return;
-
-    if (vistaActual === "ingreso") {
-      btnIngresoTab.classList.add(...active);
-      btnIngresoTab.classList.remove(...inactive);
-
-      btnSalidaTab.classList.remove(...active);
-      btnSalidaTab.classList.add(...inactive);
-    } else {
-      btnSalidaTab.classList.add(...active);
-      btnSalidaTab.classList.remove(...inactive);
-
-      btnIngresoTab.classList.remove(...active);
-      btnIngresoTab.classList.add(...inactive);
-    }
-  }
-
-  function setPageSizeStyles() {
-    const btns = [
-      pageSize100Top,
-      pageSize200Top,
-      pageSize300Top,
-      pageSizeAllTop,
-      pageSize100Bottom,
-      pageSize200Bottom,
-      pageSize300Bottom,
-      pageSizeAllBottom,
-    ].filter(Boolean);
-
-    btns.forEach((b) => {
-      b.classList.remove("bg-primary", "text-white", "shadow");
-      b.classList.add("text-gray-600", "dark:text-gray-300");
-    });
-
-    const activate = (el) => {
-      if (!el) return;
-      el.classList.add("bg-primary", "text-white", "shadow");
-      el.classList.remove("text-gray-600", "dark:text-gray-300");
-    };
-
-    if (pageSize === 100) {
-      activate(pageSize100Top);
-      activate(pageSize100Bottom);
-    } else if (pageSize === 200) {
-      activate(pageSize200Top);
-      activate(pageSize200Bottom);
-    } else if (pageSize === 300) {
-      activate(pageSize300Top);
-      activate(pageSize300Bottom);
-    } else {
-      activate(pageSizeAllTop);
-      activate(pageSizeAllBottom);
-    }
-  }
-
-  // ====== CABECERA + FILTROS ======
-  function construirHead() {
-    if (!tablaHead) return;
-    const cols = getColumnConfig();
-    tablaHead.innerHTML = "";
-
-    const trHeader = document.createElement("tr");
-    trHeader.className = "bg-gray-50 dark:bg-surface-dark-2 text-gray-700 dark:text-gray-200";
-
-    // Columna #
-    const thIndex = document.createElement("th");
-    thIndex.className =
-      "px-3 py-3 text-left align-bottom whitespace-nowrap text-xs md:text-sm font-extrabold uppercase tracking-wider";
-    thIndex.textContent = "#";
-    trHeader.appendChild(thIndex);
-
-    // Checkbox header
-    const thCheck = document.createElement("th");
-    thCheck.className = "px-3 py-3 text-center align-bottom";
-    const headerCheckbox = document.createElement("input");
-    headerCheckbox.type = "checkbox";
-    headerCheckbox.id = "select-all-checkbox";
-    headerCheckbox.className =
-      "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
-    on(headerCheckbox, "change", () => handleSelectAll(headerCheckbox.checked));
-    thCheck.appendChild(headerCheckbox);
-    trHeader.appendChild(thCheck);
-
-    cols.forEach((col) => {
-      const th = document.createElement("th");
-      th.className =
-        "px-3 py-3 text-left align-bottom whitespace-nowrap text-xs md:text-sm font-extrabold uppercase tracking-wider";
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.dataset.sortKey = col.key;
-      btn.className = "flex items-center gap-1 hover:text-primary transition-colors";
-
-      const spanLabel = document.createElement("span");
-      spanLabel.textContent = col.label;
-
-      const spanIcon = document.createElement("span");
-      spanIcon.dataset.sortIcon = col.key;
-      spanIcon.className = "text-[10px] opacity-50";
-      spanIcon.textContent = "⇅";
-
-      btn.appendChild(spanLabel);
-      btn.appendChild(spanIcon);
-      th.appendChild(btn);
-      trHeader.appendChild(th);
-    });
-
-    tablaHead.appendChild(trHeader);
-
-    // Filtros
-    const trFilters = document.createElement("tr");
-    trFilters.className = "bg-white dark:bg-surface-dark";
-
-    const thIndexFilter = document.createElement("th");
-    thIndexFilter.className = "px-3 py-2";
-    trFilters.appendChild(thIndexFilter);
-
-    const thCheckFilter = document.createElement("th");
-    thCheckFilter.className = "px-3 py-2";
-    trFilters.appendChild(thCheckFilter);
-
-    cols.forEach((col) => {
-      const th = document.createElement("th");
-      th.className = "px-3 py-2";
-
-      const input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = "Filtrar...";
-      input.className =
-        "w-full rounded-full border-0 bg-gray-50 dark:bg-gray-800 py-2 px-3 text-xs md:text-sm text-gray-900 dark:text-white ring-1 ring-inset ring-gray-200 dark:ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary";
-      input.dataset.filter = col.key;
-      input.value = filtros[col.key] || "";
-
-      on(input, "input", () => {
-        filtros[col.key] = input.value.trim().toLowerCase();
-        pageIndex = 1;
-        aplicarFiltrosYRender();
       });
+    }
 
-      th.appendChild(input);
-      trFilters.appendChild(th);
-    });
-
-    tablaHead.appendChild(trFilters);
-
-    // Orden
-    tablaHead.querySelectorAll("[data-sort-key]").forEach((btn) => {
-      on(btn, "click", () => manejarOrden(btn.dataset.sortKey));
-    });
+    return out;
   }
 
-  function actualizarSortIcons() {
-    if (!tablaHead) return;
-    const icons = tablaHead.querySelectorAll("[data-sort-icon]");
-    icons.forEach((icon) => {
-      const key = icon.dataset.sortIcon;
-      if (sortConfig.key === key) {
-        icon.textContent = sortConfig.direction === "asc" ? "⇧" : "⇩";
-        icon.classList.remove("opacity-50");
-        icon.classList.add("opacity-90");
-      } else {
-        icon.textContent = "⇅";
-        icon.classList.add("opacity-50");
-        icon.classList.remove("opacity-90");
+  function applyViewMode(rows) {
+    if (viewMode === "salida") return rows.filter(hasSalida);
+    return rows;
+  }
+
+  // ---------- cálculos negocio ----------
+  function enrichRow(r) {
+    const pesoIng = Number(r?.Peso) || 0;
+    const pesoSal = Number(r?.PesoSalida) || 0;
+
+    const vIng = Number(r?.ValorKGingreso) || 0;
+    const vSal = Number(r?.ValorKGsalida) || 0;
+
+    const totalIngreso = pesoIng * vIng;
+    const totalSalida = pesoSal * vSal;
+
+    const flete = Number(r?.Flete) || 0;
+    const comision = Number(r?.Comision) || 0;
+    const mermas = Number(r?.Mermas) || 0;
+
+    const costos = flete + comision + mermas;
+    const utilidad = totalSalida - (totalIngreso + costos);
+
+    const dias = hasSalida(r) ? diffDays(r.FechaIngreso, r.FechaSalida) : null;
+    const gananciaKg = hasSalida(r) ? (pesoSal - pesoIng) : null;
+
+    return { ...r, _pesoIng: pesoIng, _pesoSal: pesoSal, _vIng: vIng, _vSal: vSal, totalIngreso, totalSalida, costos, utilidad, dias, gananciaKg };
+  }
+
+  // ---------- render ----------
+  function setActiveTabUI() {
+    const on = "bg-white dark:bg-[#1a1926] text-primary shadow-sm";
+    const off = "text-gray-600 dark:text-gray-200/80";
+
+    [btnIngreso, btnSalida].forEach((b) => {
+      if (!b) return;
+      b.classList.remove("bg-white", "dark:bg-[#1a1926]", "text-primary", "shadow-sm", "text-gray-600", "dark:text-gray-200/80");
+    });
+
+    if (btnIngreso) {
+      if (viewMode === "ingreso") btnIngreso.className = btnIngreso.className + " " + on;
+      else btnIngreso.className = btnIngreso.className + " " + off;
+    }
+
+    if (btnSalida) {
+      if (viewMode === "salida") btnSalida.className = btnSalida.className + " " + on;
+      else btnSalida.className = btnSalida.className + " " + off;
+    }
+  }
+
+  function render() {
+    setActiveTabUI();
+
+    const base = applyFiltersBase(allRows).map(enrichRow);
+
+    // Totales globales (sobre el filtro, no importa el tab)
+    renderTotales(base);
+
+    // Estadísticas (sobre salidas dentro del filtro)
+    renderStats(base);
+
+    // Vista tabla según tab
+    const view = applyViewMode(base);
+
+    // Paginación
+    const size = pageSize === Infinity ? view.length : pageSize;
+    const maxPage = Math.max(1, Math.ceil(view.length / Math.max(1, size)));
+    if (page > maxPage) page = maxPage;
+
+    const startIdx = (page - 1) * size;
+    const pageRows = view.slice(startIdx, startIdx + size);
+
+    renderPager(view.length, pageRows.length, startIdx);
+    renderTable(pageRows, viewMode);
+
+    updateSelectionInfo(view, pageRows);
+  }
+
+  function renderTotales(baseRows) {
+    const totalContexto = allRows.length;
+    const totalFiltrado = baseRows.length;
+    const totalSalidas = baseRows.filter(hasSalida).length;
+
+    // Dinero y utilidad SOLO en salidas (tiene sentido)
+    const salidas = baseRows.filter(hasSalida);
+    const sumIng = salidas.reduce((a, r) => a + (Number(r.totalIngreso) || 0), 0);
+    const sumSal = salidas.reduce((a, r) => a + (Number(r.totalSalida) || 0), 0);
+    const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
+    const margen = sumIng > 0 ? (sumUtil / sumIng) * 100 : null;
+
+    if (elTotalGeneral) elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
+    if (elTotalIngresos) elTotalIngresos.textContent = totalFiltrado.toLocaleString("es-CO");
+    if (elTotalSalidas) elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
+
+    if (elTotalValorIngreso) elTotalValorIngreso.textContent = fmtMoney(sumIng);
+    if (elTotalValorSalida) elTotalValorSalida.textContent = fmtMoney(sumSal);
+
+    if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
+    if (elTotalUtilidadPct) elTotalUtilidadPct.textContent = margen === null ? "-" : `${margen.toFixed(2)}%`;
+  }
+
+  function renderStats(baseRows) {
+    const salidas = baseRows.filter(hasSalida);
+
+    const prom = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+
+    const pesosIng = salidas.map((r) => r._pesoIng).filter((v) => Number.isFinite(v) && v > 0);
+    const pesosSal = salidas.map((r) => r._pesoSal).filter((v) => Number.isFinite(v) && v > 0);
+    const ganKg = salidas.map((r) => r.gananciaKg).filter((v) => Number.isFinite(v));
+    const vIng = salidas.map((r) => r._vIng).filter((v) => Number.isFinite(v) && v > 0);
+    const vSal = salidas.map((r) => r._vSal).filter((v) => Number.isFinite(v) && v > 0);
+
+    const dias = salidas.map((r) => r.dias).filter((v) => Number.isFinite(v) && v >= 0);
+    const utils = salidas.map((r) => r.utilidad).filter((v) => Number.isFinite(v));
+    const ingresos = salidas.map((r) => r.totalIngreso).filter((v) => Number.isFinite(v) && v > 0);
+
+    const pIng = prom(pesosIng);
+    const pSal = prom(pesosSal);
+    const g = prom(ganKg);
+    const vI = prom(vIng);
+    const vS = prom(vSal);
+
+    const d = prom(dias);
+    const u = prom(utils);
+    const ing = prom(ingresos);
+
+    const margenPct = ing && ing > 0 && u !== null ? (u / ing) * 100 : null;
+    const uDia = d && d > 0 && u !== null ? (u / d) : null;
+    const kgDia = d && d > 0 && g !== null ? (g / d) : null;
+
+    if (elStatPesoIng) elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
+    if (elStatPesoSal) elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
+    if (elStatPesoGan) elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
+
+    if (elStatValorIng) elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
+    if (elStatValorSal) elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
+
+    // Sex counts (sobre el filtro actual, incluyendo ingresos sin salida)
+    const sexCounts = baseRows.reduce(
+      (acc, r) => {
+        const k = normSexo(r.Sexo);
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      },
+      { MACHO: 0, HEMBRA: 0, OTRO: 0, "N/A": 0 }
+    );
+
+    // --- sugerencia por buckets de Peso ingreso, optimizando utilidad ---
+    function bestBucket(rows, step = 25) {
+      // requiere: salidas con peso, días y utilidad
+      const buckets = new Map();
+
+      for (const r of rows) {
+        if (!hasSalida(r)) continue;
+
+        const w = Number(r._pesoIng);
+        const dd = Number(r.dias);
+        const uu = Number(r.utilidad);
+        const ti = Number(r.totalIngreso);
+
+        if (!Number.isFinite(w) || w <= 0) continue;
+        if (!Number.isFinite(dd) || dd <= 0) continue;
+        if (!Number.isFinite(uu)) continue;
+
+        const start = Math.floor(w / step) * step;
+        const key = `${start}-${start + step}`;
+
+        const b = buckets.get(key) || { key, start, end: start + step, n: 0, sumU: 0, sumD: 0, sumIng: 0 };
+        b.n += 1;
+        b.sumU += uu;
+        b.sumD += dd;
+        b.sumIng += Number.isFinite(ti) ? ti : 0;
+
+        buckets.set(key, b);
       }
-    });
-  }
 
-  function manejarOrden(key) {
-    const cols = getColumnConfig();
-    const existe = cols.some((c) => c.key === key);
-    if (!existe) return;
+      const stats = Array.from(buckets.values())
+        .map((b) => {
+          const avgU = b.sumU / b.n;
+          const avgD = b.sumD / b.n;
+          const avgUDia = avgD > 0 ? avgU / avgD : 0;
+          const avgIng = b.sumIng / b.n;
+          const avgMarg = avgIng > 0 ? (avgU / avgIng) * 100 : 0;
+          return { ...b, avgU, avgD, avgUDia, avgMarg };
+        })
+        .filter((b) => b.n >= 3); // mínimo para “no inventar”
 
-    if (sortConfig.key === key) {
-      sortConfig.direction = sortConfig.direction === "asc" ? "desc" : "asc";
-    } else {
-      sortConfig.key = key;
-      sortConfig.direction = "asc";
-    }
-    pageIndex = 1;
-    aplicarFiltrosYRender();
-  }
+      if (!stats.length) return null;
 
-  // ====== FECHAS ======
-  function dateKeyForVista() {
-    return vistaActual === "ingreso" ? "FechaIngreso" : "FechaSalida";
-  }
+      const bestPorDia = [...stats].sort((a, b) => b.avgUDia - a.avgUDia)[0];
+      const bestTotal = [...stats].sort((a, b) => b.avgU - a.avgU)[0];
 
-  function syncDateInputs() {
-    if (dateFromTop) dateFromTop.value = dateFrom || "";
-    if (dateToTop) dateToTop.value = dateTo || "";
-    if (dateFromBottom) dateFromBottom.value = dateFrom || "";
-    if (dateToBottom) dateToBottom.value = dateTo || "";
-  }
-
-  function applyDateChange(from, to) {
-    dateFrom = from || "";
-    dateTo = to || "";
-    pageIndex = 1;
-    syncDateInputs();
-    aplicarFiltrosYRender();
-  }
-
-  function moveDateRange(direction) {
-    if (!dateFrom || !dateTo) return;
-
-    const a = parseISODate(dateFrom);
-    const b = parseISODate(dateTo);
-    if (!a || !b) return;
-
-    const span = Math.max(0, Math.floor((b - a) / 86400000));
-    const stepDays = span + 1;
-
-    const newFrom = new Date(a.getTime() + direction * stepDays * 86400000);
-    const newTo = new Date(b.getTime() + direction * stepDays * 86400000);
-
-    const iso = (d) => d.toISOString().slice(0, 10);
-    applyDateChange(iso(newFrom), iso(newTo));
-  }
-
-  // ====== PAGINACIÓN ======
-  function totalPages(total) {
-    if (pageSize === Infinity) return 1;
-    return Math.max(1, Math.ceil(total / pageSize));
-  }
-
-  function clampPageIndex() {
-    const pages = totalPages(totalRowsAfterFilters);
-    pageIndex = Math.min(Math.max(1, pageIndex), pages);
-  }
-
-  function updatePageInfo() {
-    const total = totalRowsAfterFilters;
-    const pages = totalPages(total);
-    clampPageIndex();
-
-    let start = 0;
-    let end = 0;
-
-    if (total === 0) {
-      start = 0;
-      end = 0;
-    } else if (pageSize === Infinity) {
-      start = 1;
-      end = total;
-    } else {
-      start = (pageIndex - 1) * pageSize + 1;
-      end = Math.min(total, pageIndex * pageSize);
+      return { step, bestPorDia, bestTotal };
     }
 
-    const msg = `Mostrando ${start}–${end} de ${total}`;
-    if (pageInfoTop) pageInfoTop.textContent = msg;
-    if (pageInfoBottom) pageInfoBottom.textContent = msg;
+    const sugGlobal = bestBucket(baseRows, 25);
 
-    const disablePrev = pageIndex <= 1 || total === 0 || pageSize === Infinity;
-    const disableNext = pageIndex >= pages || total === 0 || pageSize === Infinity;
+    // si hay suficientes datos por sexo, también sacamos recomendación
+    const salidasM = baseRows.filter((r) => normSexo(r.Sexo) === "MACHO");
+    const salidasH = baseRows.filter((r) => normSexo(r.Sexo) === "HEMBRA");
+    const sugM = bestBucket(salidasM, 25);
+    const sugH = bestBucket(salidasH, 25);
+
+    // --- mensaje “Predicción simple” (en realidad: sugerencia útil) ---
+    if (elStatPred) {
+      const parts = [];
+
+      parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
+      parts.push(`• Registros filtrados: <strong>${baseRows.length.toLocaleString("es-CO")}</strong>`);
+      parts.push(`• Salidas en el filtro: <strong>${salidas.length.toLocaleString("es-CO")}</strong>`);
+
+      parts.push(
+        `• Sexo: Machos <strong>${sexCounts.MACHO.toLocaleString("es-CO")}</strong>, Hembras <strong>${sexCounts.HEMBRA.toLocaleString("es-CO")}</strong>` +
+          (sexCounts["N/A"] ? `, Sin dato ${sexCounts["N/A"].toLocaleString("es-CO")}` : "") +
+          (sexCounts.OTRO ? `, Otros ${sexCounts.OTRO.toLocaleString("es-CO")}` : "")
+      );
+
+      if (!salidas.length) {
+        parts.push(
+          `<span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
+        );
+        elStatPred.innerHTML = parts.join("<br>");
+        return;
+      }
+
+      if (d !== null) parts.push(`• Días promedio en finca (salidas): <strong>${d.toFixed(1)}</strong> días`);
+      if (u !== null) {
+        parts.push(`• Utilidad promedio por animal: <strong>${fmtMoney(u)}</strong>` + (margenPct === null ? "" : ` (<strong>${margenPct.toFixed(2)}%</strong>)`));
+      }
+      if (uDia !== null) parts.push(`• Utilidad promedio por día: <strong>${fmtMoney(uDia)}</strong>`);
+      if (g !== null) parts.push(`• Ganancia de peso promedio: <strong>${g.toFixed(1)} kg</strong>` + (kgDia === null ? "" : ` (~<strong>${kgDia.toFixed(2)} kg/día</strong>)`));
+
+      // Sugerencia global
+      if (sugGlobal?.bestPorDia) {
+        const b = sugGlobal.bestPorDia;
+        const c = sugGlobal.bestTotal;
+
+        parts.push(`<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`);
+        parts.push(
+          `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${b.start}-${b.end} kg</strong> fue tu mejor rango (n=${b.n}). ` +
+            `Prom: <strong>${fmtMoney(b.avgU)}</strong> en <strong>${b.avgD.toFixed(1)} días</strong> (= ${fmtMoney(b.avgUDia)}/día).`
+        );
+
+        if (c && c.key !== b.key) {
+          parts.push(
+            `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${c.start}-${c.end} kg</strong> fue el mejor (n=${c.n}). ` +
+              `Prom: <strong>${fmtMoney(c.avgU)}</strong> por animal (margen ~${c.avgMarg.toFixed(2)}%).`
+          );
+        }
+      } else {
+        parts.push(
+          `<br><strong>Sugerencia de peso:</strong> todavía no hay suficientes salidas “completas” (peso/días/utilidad) para recomendar un rango con confianza (mínimo 3 casos por rango).`
+        );
+      }
+
+      // Sugerencia por sexo (si alcanza)
+      const sexoSugLines = [];
+      if (sugM?.bestPorDia) {
+        const b = sugM.bestPorDia;
+        sexoSugLines.push(`• <strong>Machos</strong>: mejor por día <strong>${b.start}-${b.end} kg</strong> (n=${b.n}).`);
+      }
+      if (sugH?.bestPorDia) {
+        const b = sugH.bestPorDia;
+        sexoSugLines.push(`• <strong>Hembras</strong>: mejor por día <strong>${b.start}-${b.end} kg</strong> (n=${b.n}).`);
+      }
+      if (sexoSugLines.length) {
+        parts.push(`<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join("<br>")}`);
+      }
+
+      parts.push(
+        `<br><span class="text-xs text-gray-500 dark:text-gray-400">Tip: si cambian los precios (compra/venta), usa un rango de fechas reciente; la recomendación puede moverse.</span>`
+      );
+
+      elStatPred.innerHTML = parts.join("<br>");
+    }
+  }
+
+  function renderPager(total, pageCount, startIdx) {
+    const start = total ? startIdx + 1 : 0;
+    const end = total ? startIdx + pageCount : 0;
+    const txt = `Mostrando ${start.toLocaleString("es-CO")}–${end.toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`;
+
+    if (pageInfoTop) pageInfoTop.textContent = txt;
+    if (pageInfoBottom) pageInfoBottom.textContent = txt;
+
+    const maxPage = Math.max(1, Math.ceil(total / (pageSize === Infinity ? total || 1 : pageSize)));
+
+    const disablePrev = page <= 1 || pageSize === Infinity;
+    const disableNext = page >= maxPage || pageSize === Infinity;
 
     if (pagePrevTop) pagePrevTop.disabled = disablePrev;
     if (pagePrevBottom) pagePrevBottom.disabled = disablePrev;
     if (pageNextTop) pageNextTop.disabled = disableNext;
     if (pageNextBottom) pageNextBottom.disabled = disableNext;
-
-    const dim = (btn, disabled) => {
-      if (!btn) return;
-      btn.classList.toggle("opacity-40", disabled);
-      btn.classList.toggle("pointer-events-none", disabled);
-    };
-
-    dim(pagePrevTop, disablePrev);
-    dim(pagePrevBottom, disablePrev);
-    dim(pageNextTop, disableNext);
-    dim(pageNextBottom, disableNext);
   }
 
-  function sliceByPage(rows) {
-    totalRowsAfterFilters = rows.length;
-    clampPageIndex();
-    updatePageInfo();
+  function updateSelectionInfo(viewRowsAll, pageRows) {
+    const selectedInView = viewRowsAll.filter((r) => selectedKeys.has(rowKey(r))).length;
+    const msg =
+      selectedKeys.size
+        ? `Seleccionados: ${selectedKeys.size.toLocaleString("es-CO")} (en esta vista: ${selectedInView.toLocaleString("es-CO")}).`
+        : "Totales basados en todos los registros filtrados.";
 
-    if (pageSize === Infinity) return rows;
-    const startIdx = (pageIndex - 1) * pageSize;
-    return rows.slice(startIdx, startIdx + pageSize);
+    if (selectionInfo) selectionInfo.textContent = msg;
+    if (selectionInfoMobile) selectionInfoMobile.textContent = msg;
+
+    // si no hay nada seleccionado, limpiamos el “select all” de header si existe
+    // (lo maneja renderTable)
   }
 
-  // ====== CARGA DATOS ======
-  async function cargarDatos() {
-    try {
-      const res = await apiFetch("/api/historicoiys");
-      const data = await res.json().catch(() => []);
-      registros = Array.isArray(data) ? data : [];
-      aplicarFiltrosYRender();
-    } catch (err) {
-      if (String(err?.message || "") !== "NO_SESSION") {
-        console.error("Error al cargar datos:", err);
-      }
-    }
-  }
+  function renderTable(rows, mode) {
+    if (!tablaHead || !tablaBody) return;
 
-  function aplicarFiltrosYRender() {
-    const dateKey = dateKeyForVista();
+    // columnas según modo
+    const colsIngreso = [
+      { key: "_select", label: "" },
+      { key: "Numero", label: "Número" },
+      { key: "Finca", label: "Finca" },
+      { key: "Sexo", label: "Sexo" },
+      { key: "FechaIngreso", label: "Ingreso" },
+      { key: "Peso", label: "Peso (kg)" },
+      { key: "ValorKGingreso", label: "$/kg compra" },
+      { key: "totalIngreso", label: "Total compra" },
+      { key: "Raza", label: "Raza" },
+      { key: "Color", label: "Color" },
+      { key: "Edad", label: "Edad" },
+      { key: "Marcallegada", label: "Marca" },
+      { key: "Proveedor", label: "Proveedor" },
+      { key: "Destino", label: "Destino" },
+    ];
 
-    const filtradosFechas = registros.filter((r) => {
-      if (!dateFrom && !dateTo) return true;
+    const colsSalida = [
+      { key: "_select", label: "" },
+      { key: "Numero", label: "Número" },
+      { key: "Finca", label: "Finca" },
+      { key: "Sexo", label: "Sexo" },
+      { key: "FechaIngreso", label: "Ingreso" },
+      { key: "FechaSalida", label: "Salida" },
+      { key: "dias", label: "Días" },
+      { key: "_pesoIng", label: "Peso Ing" },
+      { key: "_pesoSal", label: "Peso Sal" },
+      { key: "gananciaKg", label: "Ganancia" },
+      { key: "_vIng", label: "$/kg compra" },
+      { key: "_vSal", label: "$/kg venta" },
+      { key: "totalIngreso", label: "Total compra" },
+      { key: "totalSalida", label: "Total venta" },
+      { key: "costos", label: "Costos" },
+      { key: "utilidad", label: "Utilidad" },
+    ];
 
-      const v = r[dateKey];
-      if (!v) return false;
+    const cols = mode === "salida" ? colsSalida : colsIngreso;
 
-      const t = parseISODate(v);
-      if (!t) return false;
+    // Header
+    tablaHead.innerHTML = "";
+    const theadRow = document.createElement("tr");
+    theadRow.className = "bg-gray-50 dark:bg-[#232235]";
 
-      const fromT = dateFrom ? parseISODate(dateFrom) : null;
-      const toT = dateTo ? parseISODate(dateTo) : null;
+    // Select-all header checkbox
+    const thSelect = document.createElement("th");
+    thSelect.className = "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
+    const selectAll = document.createElement("input");
+    selectAll.type = "checkbox";
+    selectAll.className = "rounded border-gray-300 dark:border-gray-600";
 
-      if (fromT && t < fromT) return false;
-      if (toT && t > toT) return false;
-      return true;
+    // estado del select-all (solo respecto a las filas de ESTA página)
+    const pageKeys = rows.map((r) => rowKey(r));
+    const selectedCount = pageKeys.filter((k) => selectedKeys.has(k)).length;
+    selectAll.checked = rows.length > 0 && selectedCount === rows.length;
+    selectAll.indeterminate = selectedCount > 0 && selectedCount < rows.length;
+
+    selectAll.addEventListener("change", (e) => {
+      if (e.target.checked) pageKeys.forEach((k) => selectedKeys.add(k));
+      else pageKeys.forEach((k) => selectedKeys.delete(k));
+      render(); // recalcula y re-render
     });
 
-    const filtradosGlobal = filtradosFechas.filter((r) =>
-      Object.entries(filtros).every(([key, val]) => {
-        if (!val) return true;
-        const raw = rawValue(r, key);
-        const text = (raw ?? "").toString().toLowerCase();
-        return text.includes(val);
-      })
-    );
+    thSelect.appendChild(selectAll);
+    theadRow.appendChild(thSelect);
 
-    const contextRows =
-      selectedNumeros.size > 0
-        ? filtradosGlobal.filter((r) => selectedNumeros.has(r.Numero))
-        : filtradosGlobal;
+    // resto headers
+    cols.slice(1).forEach((c) => {
+      const th = document.createElement("th");
+      th.className =
+        "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 whitespace-nowrap";
+      th.textContent = c.label;
+      theadRow.appendChild(th);
+    });
 
-    const ingresosContext = contextRows.filter(isIngresoAbierto);
-    const salidasContext = contextRows.filter(isSalidaRow);
+    tablaHead.appendChild(theadRow);
 
-    const total = contextRows.length;
-    const totalIngresos = ingresosContext.length;
-    const totalSalidas = salidasContext.length;
-
-    const totalValorIngreso = ingresosContext.reduce(
-      (acc, r) => acc + (rawValue(r, "totalIngreso") || 0),
-      0
-    );
-
-    const totalValorSalida = salidasContext.reduce(
-      (acc, r) => acc + (rawValue(r, "totalSalidaCalc") || 0),
-      0
-    );
-
-    if (totalGeneralEl) totalGeneralEl.textContent = total;
-    if (totalIngresosEl) totalIngresosEl.textContent = totalIngresos;
-    if (totalSalidasEl) totalSalidasEl.textContent = totalSalidas;
-    if (totalValorIngresoEl) totalValorIngresoEl.textContent = formatMoney(totalValorIngreso);
-    if (totalValorSalidaEl) totalValorSalidaEl.textContent = formatMoney(totalValorSalida);
-
-    const totalIngresoDeSalidas = salidasContext.reduce(
-      (acc, r) => acc + (rawValue(r, "totalIngreso") || 0),
-      0
-    );
-
-    const totalUtilidad = salidasContext.reduce(
-      (acc, r) => acc + (rawValue(r, "utilidad") || 0),
-      0
-    );
-
-    if (totalUtilidadEl) totalUtilidadEl.textContent = formatMoney(totalUtilidad);
-
-    if (totalUtilidadPctEl) {
-      if (totalIngresoDeSalidas > 0) {
-        const pct = (totalUtilidad / totalIngresoDeSalidas) * 100;
-        totalUtilidadPctEl.textContent = `${pct.toFixed(2)}%`;
-      } else {
-        totalUtilidadPctEl.textContent = "-";
-      }
-    }
-
-    actualizarEstadisticas(contextRows);
-
-    let visiblesBase =
-      vistaActual === "ingreso"
-        ? filtradosGlobal.filter(isIngresoAbierto)
-        : filtradosGlobal.filter(isSalidaRow);
-
-    if (selectedNumeros.size > 0) {
-      visiblesBase = visiblesBase.filter((r) => selectedNumeros.has(r.Numero));
-    }
-
-    let visibles = visiblesBase;
-    if (sortConfig.key) {
-      const { key, direction } = sortConfig;
-      const cols = getColumnConfig();
-      if (cols.some((c) => c.key === key)) {
-        visibles = [...visiblesBase].sort((a, b) => {
-          const va = rawValue(a, key);
-          const vb = rawValue(b, key);
-
-          if (va == null && vb == null) return 0;
-          if (va == null) return 1;
-          if (vb == null) return -1;
-
-          if (typeof va === "number" && typeof vb === "number") {
-            return direction === "asc" ? va - vb : vb - va;
-          }
-
-          const sa = va.toString().toLowerCase();
-          const sb = vb.toString().toLowerCase();
-          if (sa < sb) return direction === "asc" ? -1 : 1;
-          if (sa > sb) return direction === "asc" ? 1 : -1;
-          return 0;
-        });
-      } else {
-        sortConfig.key = null;
-      }
-    }
-
-    const visiblesPaginados = sliceByPage(visibles);
-    vistaFiltradaActual = visiblesPaginados;
-
-    construirHead();
-    renderTabla(visiblesPaginados);
-    actualizarSortIcons();
-    actualizarSelectionInfo(filtradosGlobal.length, contextRows.length);
-    actualizarHeaderCheckbox();
-    setPageSizeStyles();
-  }
-
-  function renderTabla(filas) {
-    if (!tablaBody) return;
-    const cols = getColumnConfig();
+    // Body
     tablaBody.innerHTML = "";
 
-    filas.forEach((row, idx) => {
-      const numero = row.Numero;
-      const isSelected = selectedNumeros.has(numero);
-
+    rows.forEach((r) => {
       const tr = document.createElement("tr");
-      tr.className =
-        "bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-surface-dark-2 transition-colors";
-      tr.dataset.numero = numero;
+      tr.className = "hover:bg-gray-50/70 dark:hover:bg-white/5";
 
-      // #
-      const tdIndex = document.createElement("td");
-      tdIndex.className = "px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-200";
-      tdIndex.textContent =
-        pageSize === Infinity ? idx + 1 : (pageIndex - 1) * pageSize + (idx + 1);
-      tr.appendChild(tdIndex);
+      const k = rowKey(r);
+      const checked = selectedKeys.has(k);
 
-      // checkbox
-      const tdCheck = document.createElement("td");
-      tdCheck.className = "px-3 py-2 text-center";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.className =
-        "h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-primary focus:ring-primary";
-      cb.checked = isSelected;
-      cb.dataset.numero = numero;
-      on(cb, "click", (e) => {
-        e.stopPropagation();
-        handleCheckboxChange(numero, cb.checked);
+      // select cell
+      const td0 = document.createElement("td");
+      td0.className = "px-3 py-2";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.className = "rounded border-gray-300 dark:border-gray-600";
+      chk.checked = checked;
+      chk.addEventListener("change", (e) => {
+        if (e.target.checked) selectedKeys.add(k);
+        else selectedKeys.delete(k);
+        render();
       });
-      tdCheck.appendChild(cb);
-      tr.appendChild(tdCheck);
+      td0.appendChild(chk);
+      tr.appendChild(td0);
 
-      // data
-      cols.forEach((col) => {
+      // cells
+      cols.slice(1).forEach((c) => {
         const td = document.createElement("td");
-        td.className = "px-3 py-2 whitespace-nowrap text-gray-800 dark:text-gray-200";
+        td.className = "px-3 py-2 whitespace-nowrap";
 
-        const val = rawValue(row, col.key);
+        let v = r[c.key];
 
-        // ✅ Número con botón copiar
-        if (col.key === "Numero") {
-          td.className = "px-3 py-2 whitespace-nowrap";
-          const wrap = document.createElement("div");
-          wrap.className = "flex items-center gap-2";
+        // Finca (tu tabla usa "Finca" como texto; a veces llega "FincaNombre/FincaIndicativo")
+        if (c.key === "Finca") {
+          v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
+        }
 
-          const strong = document.createElement("span");
-          strong.className = "font-extrabold text-gray-900 dark:text-white";
-          strong.textContent = formatCell(col.key, val);
-
-          const btnCopy = document.createElement("button");
-          btnCopy.type = "button";
-          btnCopy.className =
-            "inline-flex items-center justify-center size-8 rounded-full bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition";
-          btnCopy.title = "Copiar número";
-
-          const icon = document.createElement("span");
-          icon.className = "material-symbols-outlined text-[18px]";
-          icon.textContent = "content_copy";
-
-          btnCopy.appendChild(icon);
-
-          on(btnCopy, "click", async (e) => {
-            e.stopPropagation();
-            const ok = await copyToClipboard(numero);
-            if (ok) {
-              icon.textContent = "check";
-              setTimeout(() => (icon.textContent = "content_copy"), 900);
-            }
-          });
-
-          wrap.appendChild(strong);
-          wrap.appendChild(btnCopy);
-          td.appendChild(wrap);
+        // fechas
+        if (c.key === "FechaIngreso" || c.key === "FechaSalida") {
+          const d = parseISODate(v);
+          td.textContent = d ? fmtDate(d) : "-";
           tr.appendChild(td);
           return;
         }
 
-        td.textContent = formatCell(col.key, val);
+        // num formatting
+        const right = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
+        const moneyCols = new Set(["ValorKGingreso", "totalIngreso", "totalSalida", "costos", "utilidad", "_vIng", "_vSal"]);
 
-        if (col.key === "utilidad") {
-          const u = Number(val) || 0;
-          td.classList.add("font-bold");
-          if (u > 0) td.classList.add("text-emerald-600");
-          if (u < 0) td.classList.add("text-rose-500");
+        if (right.has(c.key)) {
+          td.classList.add("text-right", "tabular-nums");
+          td.textContent = v === null || v === undefined ? "-" : fmtNum(v, c.key === "dias" ? 0 : 1);
+          tr.appendChild(td);
+          return;
         }
 
+        if (moneyCols.has(c.key)) {
+          td.classList.add("text-right", "tabular-nums");
+          const n = Number(v);
+          if (!Number.isFinite(n)) td.textContent = "-";
+          else {
+            if (c.key === "utilidad") {
+              td.innerHTML = `<span class="${n >= 0 ? "text-emerald-600" : "text-rose-500"}">${fmtMoney(n)}</span>`;
+            } else {
+              td.textContent = fmtMoney(n);
+            }
+          }
+          tr.appendChild(td);
+          return;
+        }
+
+        // default
+        td.textContent = v === null || v === undefined ? "" : String(v);
         tr.appendChild(td);
       });
 
@@ -869,563 +664,272 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function handleCheckboxChange(numero, checked) {
-    if (checked) selectedNumeros.add(numero);
-    else selectedNumeros.delete(numero);
-    pageIndex = 1;
-    aplicarFiltrosYRender();
-  }
+  // ---------- export ----------
+  function exportXLSX(rows, filename) {
+    if (!rows.length) return alert("No hay datos para exportar.");
 
-  function handleSelectAll(checked) {
-    if (checked) {
-      vistaFiltradaActual.forEach((r) => selectedNumeros.add(r.Numero));
-    } else {
-      vistaFiltradaActual.forEach((r) => selectedNumeros.delete(r.Numero));
-    }
-    pageIndex = 1;
-    aplicarFiltrosYRender();
-  }
-
-  function actualizarHeaderCheckbox() {
-    const headerCb = document.getElementById("select-all-checkbox");
-    if (!headerCb) return;
-
-    if (vistaFiltradaActual.length === 0) {
-      headerCb.checked = false;
-      headerCb.indeterminate = false;
-      return;
-    }
-
-    const seleccionadosEnVista = vistaFiltradaActual.filter((r) =>
-      selectedNumeros.has(r.Numero)
-    ).length;
-
-    if (seleccionadosEnVista === 0) {
-      headerCb.checked = false;
-      headerCb.indeterminate = false;
-    } else if (seleccionadosEnVista === vistaFiltradaActual.length) {
-      headerCb.checked = true;
-      headerCb.indeterminate = false;
-    } else {
-      headerCb.checked = false;
-      headerCb.indeterminate = true;
-    }
-  }
-
-  function actualizarSelectionInfo(totalFiltrados, totalContext) {
-    const msg =
-      selectedNumeros.size === 0
-        ? "Totales basados en todos los registros filtrados."
-        : `Totales basados en ${totalContext} registro(s) seleccionados (de ${totalFiltrados} filtrados).`;
-
-    if (selectionInfo) selectionInfo.textContent = msg;
-    if (selectionInfoMobile) selectionInfoMobile.textContent = msg;
-  }
-
-  // ====== ESTADÍSTICAS “COMPLETAS” + SUGERENCIA DE PESO ======
-  function actualizarEstadisticas(rows) {
-    const safeSet = (el, txt) => el && (el.textContent = txt);
-
-    const arr = Array.isArray(rows) ? rows : [];
-    if (!arr.length) {
-      safeSet(statPesoIngEl, "-");
-      safeSet(statPesoSalEl, "-");
-      safeSet(statPesoGananciaEl, "-");
-      safeSet(statValorIngEl, "-");
-      safeSet(statValorSalEl, "-");
-      if (statPrediccionEl) statPrediccionEl.textContent = "Sin datos suficientes para analizar.";
-      return;
-    }
-
-    const salidas = arr.filter(isSalidaRow);
-    const ingresosAbiertos = arr.filter(isIngresoAbierto);
-
-    // Conteo sexo (sobre el filtro actual)
-    const sexoAll = arr.reduce(
-      (acc, r) => {
-        const k = normSexo(r.Sexo);
-        acc[k] = (acc[k] || 0) + 1;
-        return acc;
-      },
-      { MACHOS: 0, HEMBRAS: 0, OTROS: 0, "SIN DATO": 0 }
-    );
-
-    // Conteo sexo solo salidas
-    const sexoSal = salidas.reduce(
-      (acc, r) => {
-        const k = normSexo(r.Sexo);
-        acc[k] = (acc[k] || 0) + 1;
-        return acc;
-      },
-      { MACHOS: 0, HEMBRAS: 0, OTROS: 0, "SIN DATO": 0 }
-    );
-
-    const pesosIng = salidas.map((r) => Number(r.Peso)).filter((v) => Number.isFinite(v) && v > 0);
-    const pesosSal = salidas
-      .map((r) => Number(r.PesoSalida))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const difPesos = salidas
-      .map((r) => {
-        const pi = Number(r.Peso);
-        const ps = Number(r.PesoSalida);
-        if (Number.isFinite(pi) && Number.isFinite(ps) && ps > 0) return ps - pi;
-        return null;
-      })
-      .filter((v) => v !== null);
-
-    const valIng = salidas
-      .map((r) => Number(r.ValorKGingreso))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const valSal = salidas
-      .map((r) => Number(r.ValorKGsalida))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const diasArr = salidas
-      .map((r) => diffDays(r.FechaIngreso, r.FechaSalida))
-      .filter((v) => Number.isFinite(v) && v >= 0);
-
-    const utilidades = salidas
-      .map((r) => Number(rawValue(r, "utilidad")))
-      .filter((v) => Number.isFinite(v));
-
-    const ingresosSalidas = salidas
-      .map((r) => Number(rawValue(r, "totalIngreso")))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const prom = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-
-    const pIng = prom(pesosIng);
-    const pSal = prom(pesosSal);
-    const gPeso = prom(difPesos);
-    const vIng = prom(valIng);
-    const vSal = prom(valSal);
-
-    safeSet(statPesoIngEl, pesosIng.length ? `${pIng.toFixed(1)} kg` : "-");
-    safeSet(statPesoSalEl, pesosSal.length ? `${pSal.toFixed(1)} kg` : "-");
-    safeSet(statPesoGananciaEl, difPesos.length ? `${gPeso.toFixed(1)} kg` : "-");
-    safeSet(statValorIngEl, valIng.length ? formatMoney(vIng) : "-");
-    safeSet(statValorSalEl, valSal.length ? formatMoney(vSal) : "-");
-
-    // Métricas extra
-    const avgDias = prom(diasArr);
-    const medDias = diasArr.length ? quantile([...diasArr].sort((a, b) => a - b), 0.5) : null;
-    const p25Dias = diasArr.length ? quantile([...diasArr].sort((a, b) => a - b), 0.25) : null;
-    const p75Dias = diasArr.length ? quantile([...diasArr].sort((a, b) => a - b), 0.75) : null;
-
-    const avgUtil = prom(utilidades);
-    const avgIngreso = prom(ingresosSalidas);
-    const avgMargenPct = avgIngreso > 0 ? (avgUtil / avgIngreso) * 100 : 0;
-
-    const avgUtilDia = avgDias > 0 ? avgUtil / avgDias : 0;
-    const avgKgDia = avgDias > 0 ? gPeso / avgDias : 0;
-
-    // Sugerencia de peso de ingreso (bucketing por Peso)
-    function sugerenciaPesoIngreso() {
-      if (salidas.length < 6) return null;
-
-      const step = 25; // kg
-      const buckets = new Map();
-
-      for (const r of salidas) {
-        const w = Number(r.Peso);
-        const d = diffDays(r.FechaIngreso, r.FechaSalida);
-        const u = Number(rawValue(r, "utilidad"));
-        const ing = Number(rawValue(r, "totalIngreso"));
-
-        if (!Number.isFinite(w) || w <= 0) continue;
-        if (!Number.isFinite(u)) continue;
-        if (!Number.isFinite(d) || d <= 0) continue;
-        if (!Number.isFinite(ing) || ing <= 0) continue;
-
-        const start = Math.floor(w / step) * step;
-        const key = `${start}-${start + step}`;
-
-        const b = buckets.get(key) || {
-          key,
-          start,
-          end: start + step,
-          n: 0,
-          sumUtil: 0,
-          sumDias: 0,
-          sumIng: 0,
-          sumKgGan: 0,
-        };
-
-        const kgGan = Number(rawValue(r, "diferenciaPeso"));
-        b.n += 1;
-        b.sumUtil += u;
-        b.sumDias += d;
-        b.sumIng += ing;
-        b.sumKgGan += Number.isFinite(kgGan) ? kgGan : 0;
-
-        buckets.set(key, b);
-      }
-
-      const stats = Array.from(buckets.values())
-        .map((b) => {
-          const avgU = b.sumUtil / b.n;
-          const avgD = b.sumDias / b.n;
-          const avgUDia = avgD > 0 ? avgU / avgD : 0;
-          const avgIng = b.sumIng / b.n;
-          const avgMarg = avgIng > 0 ? (avgU / avgIng) * 100 : 0;
-          const avgKgGan = b.sumKgGan / b.n;
-          const avgKgDia = avgD > 0 ? avgKgGan / avgD : 0;
-          return { ...b, avgU, avgD, avgUDia, avgMarg, avgKgGan, avgKgDia };
-        })
-        .filter((b) => b.n >= 3); // mínimo para no inventar
-
-      if (!stats.length) return null;
-
-      const bestPorDia = [...stats].sort((a, b) => b.avgUDia - a.avgUDia)[0];
-      const bestTotal = [...stats].sort((a, b) => b.avgU - a.avgU)[0];
-      const bestMargen = [...stats].sort((a, b) => b.avgMarg - a.avgMarg)[0];
-
-      // top 3 por utilidad/día para alternativas
-      const top3 = [...stats]
-        .sort((a, b) => b.avgUDia - a.avgUDia)
-        .slice(0, 3);
-
-      return { step, bestPorDia, bestTotal, bestMargen, top3 };
-    }
-
-    const sug = sugerenciaPesoIngreso();
-
-    // Mensaje “Predicción” = resumen + sugerencia accionable
-    if (statPrediccionEl) {
-      const lines = [];
-
-      lines.push(`<strong>Resumen del filtro actual</strong>`);
-      lines.push(
-        `• Registros: <strong>${arr.length.toLocaleString("es-CO")}</strong> — Ingresos abiertos: <strong>${ingresosAbiertos.length.toLocaleString(
-          "es-CO"
-        )}</strong> — Salidas: <strong>${salidas.length.toLocaleString("es-CO")}</strong>`
-      );
-
-      lines.push(
-        `• Sexo (todos): Machos <strong>${sexoAll.MACHOS.toLocaleString("es-CO")}</strong>, Hembras <strong>${sexoAll.HEMBRAS.toLocaleString(
-          "es-CO"
-        )}</strong>` +
-          (sexoAll["SIN DATO"] ? `, Sin dato <strong>${sexoAll["SIN DATO"].toLocaleString("es-CO")}</strong>` : "") +
-          (sexoAll.OTROS ? `, Otros <strong>${sexoAll.OTROS.toLocaleString("es-CO")}</strong>` : "")
-      );
-
-      if (salidas.length) {
-        lines.push(`<strong>Rendimiento (solo salidas)</strong>`);
-        lines.push(
-          `• Sexo (salidas): Machos <strong>${sexoSal.MACHOS.toLocaleString("es-CO")}</strong>, Hembras <strong>${sexoSal.HEMBRAS.toLocaleString(
-            "es-CO"
-          )}</strong>`
-        );
-
-        if (diasArr.length) {
-          const msgDias =
-            `• Días en hacienda: Prom <strong>${avgDias.toFixed(1)}</strong>` +
-            (medDias != null ? ` — Mediana <strong>${medDias.toFixed(1)}</strong>` : "") +
-            (p25Dias != null && p75Dias != null ? ` — Rango típico <strong>${p25Dias.toFixed(0)}–${p75Dias.toFixed(0)}</strong>` : "");
-          lines.push(msgDias);
-        }
-
-        if (utilidades.length) {
-          lines.push(
-            `• Utilidad: Prom/animal <strong>${formatMoney(avgUtil)}</strong> — Margen prom <strong>${avgMargenPct.toFixed(
-              2
-            )}%</strong>` +
-              (avgDias > 0 ? ` — Utilidad prom/día <strong>${formatMoney(avgUtilDia)}</strong>` : "")
-          );
-        }
-
-        if (difPesos.length) {
-          lines.push(
-            `• Ganancia de peso: Prom <strong>${gPeso.toFixed(1)} kg</strong>` +
-              (avgDias > 0 ? ` — ~<strong>${avgKgDia.toFixed(2)} kg/día</strong>` : "")
-          );
-        }
-      } else {
-        lines.push(
-          `<strong>Rendimiento</strong>: todavía no hay salidas dentro de este filtro, por eso no se puede calcular días/utilidad.`
-        );
-      }
-
-      // Sugerencia de peso (lo que pediste)
-      if (sug?.bestPorDia) {
-        const b1 = sug.bestPorDia;
-        const b2 = sug.bestTotal;
-        const b3 = sug.bestMargen;
-
-        lines.push(`<strong>Sugerencia de peso de ingreso (guía, no garantía)</strong>`);
-
-        lines.push(
-          `• Para <strong>maximizar utilidad por día</strong> (rotación): ingresa en <strong>${b1.start}-${b1.end} kg</strong> ` +
-            `(n=${b1.n}). Prom: <strong>${formatMoney(b1.avgU)}</strong> en <strong>${b1.avgD.toFixed(
-              1
-            )}</strong> días → <strong>${formatMoney(b1.avgUDia)}/día</strong>.`
-        );
-
-        if (b2 && b2.key !== b1.key) {
-          lines.push(
-            `• Para <strong>maximizar utilidad por animal</strong>: ingresa en <strong>${b2.start}-${b2.end} kg</strong> ` +
-              `(n=${b2.n}). Prom: <strong>${formatMoney(b2.avgU)}</strong> (${b2.avgMarg.toFixed(2)}%).`
-          );
-        }
-
-        // Si el mejor por margen es distinto, muéstralo
-        if (b3 && b3.key !== b1.key && b3.key !== b2.key) {
-          lines.push(
-            `• Para <strong>maximizar margen %</strong>: <strong>${b3.start}-${b3.end} kg</strong> ` +
-              `(n=${b3.n}). Margen prom: <strong>${b3.avgMarg.toFixed(2)}%</strong>.`
-          );
-        }
-
-        // Top 3 por día
-        if (sug.top3?.length) {
-          const alt = sug.top3
-            .map(
-              (x) =>
-                `<strong>${x.start}-${x.end} kg</strong> → ${formatMoney(x.avgUDia)}/día (n=${x.n})`
-            )
-            .join("<br>");
-          lines.push(`<span class="text-xs text-gray-500 dark:text-gray-400">Alternativas (Top por utilidad/día):<br>${alt}</span>`);
-        }
-
-        lines.push(
-          `<span class="text-xs text-gray-500 dark:text-gray-400">Tip: usa tus filtros por fechas (p. ej. últimos 30–60 días) para que la sugerencia se adapte a precios recientes de compra/venta.</span>`
-        );
-      } else if (salidas.length) {
-        lines.push(
-          `<strong>Sugerencia de peso</strong>: aún no hay suficientes salidas con datos completos para recomendar un rango con confianza (mínimo 3 por rango).`
-        );
-      }
-
-      statPrediccionEl.innerHTML = lines.join("<br>");
-    }
-  }
-
-  // ====== EXPORTAR ======
-  function exportarVistaActual() {
-    if (!vistaFiltradaActual.length) {
-      alert("No hay datos para exportar.");
-      return;
-    }
-
-    const cols = getColumnConfig();
-    const datos = vistaFiltradaActual.map((r, idx) => {
-      const obj = { "#": idx + 1 };
-      cols.forEach((col) => {
-        obj[col.label] = rawValue(r, col.key);
-      });
-      return obj;
+    // Aplana y limpia columnas útiles
+    const data = rows.map((r) => {
+      const rr = enrichRow(r);
+      return {
+        Numero: rr.Numero ?? "",
+        Finca: rr.FincaIndicativo ?? rr.FincaNombre ?? rr.Finca ?? "",
+        Sexo: rr.Sexo ?? "",
+        FechaIngreso: rr.FechaIngreso ?? "",
+        FechaSalida: rr.FechaSalida ?? "",
+        Dias: rr.dias ?? "",
+        PesoIngreso: rr._pesoIng ?? "",
+        PesoSalida: rr._pesoSal ?? "",
+        GananciaKg: rr.gananciaKg ?? "",
+        ValorKGCompra: rr._vIng ?? "",
+        ValorKGVenta: rr._vSal ?? "",
+        TotalCompra: rr.totalIngreso ?? "",
+        TotalVenta: rr.totalSalida ?? "",
+        Costos: rr.costos ?? "",
+        Utilidad: rr.utilidad ?? "",
+        Raza: rr.Raza ?? "",
+        Color: rr.Color ?? "",
+        Edad: rr.Edad ?? "",
+        Marca: rr.Marcallegada ?? "",
+        Destino: rr.Destino ?? "",
+        Proveedor: rr.Proveedor ?? "",
+      };
     });
 
+    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(datos);
-    XLSX.utils.book_append_sheet(wb, ws, "Histórico");
+    XLSX.utils.book_append_sheet(wb, ws, "Historico");
 
-    const fecha = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(wb, `Historico_${vistaActual}_vista_${fecha}.xlsx`);
+    XLSX.writeFile(wb, filename);
   }
 
-  function exportarTodo() {
-    if (!registros.length) {
-      alert("No hay datos para exportar.");
-      return;
-    }
-
-    const ingresosArr = registros.filter(isIngresoAbierto);
-    const salidasArr = registros.filter(isSalidaRow);
-
-    const wb = XLSX.utils.book_new();
-
-    const datosIng = ingresosArr.map((r, idx) => {
-      const obj = { "#": idx + 1 };
-      columnasIngreso.forEach((col) => {
-        obj[col.label] = rawValue(r, col.key);
-      });
-      return obj;
-    });
-    const wsIng = XLSX.utils.json_to_sheet(datosIng);
-    XLSX.utils.book_append_sheet(wb, wsIng, "Ingresos");
-
-    const datosSal = salidasArr.map((r, idx) => {
-      const obj = { "#": idx + 1 };
-      columnasSalida.forEach((col) => {
-        obj[col.label] = rawValue(r, col.key);
-      });
-      return obj;
-    });
-    const wsSal = XLSX.utils.json_to_sheet(datosSal);
-    XLSX.utils.book_append_sheet(wb, wsSal, "Salidas");
-
-    const fecha = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(wb, `Historico_completo_${fecha}.xlsx`);
+  // ---------- eventos ----------
+  function bindTabs() {
+    if (btnIngreso) btnIngreso.addEventListener("click", () => { viewMode = "ingreso"; page = 1; render(); });
+    if (btnSalida) btnSalida.addEventListener("click", () => { viewMode = "salida"; page = 1; render(); });
   }
 
-  // ====== DRAG SCROLL ======
-  function initDragScroll() {
+  function bindPager() {
+    const setSize = (n) => {
+      pageSize = n;
+      page = 1;
+      render();
+      syncPageSizeButtonsUI();
+    };
+
+    const prev = () => { page = Math.max(1, page - 1); render(); };
+    const next = () => { page = page + 1; render(); };
+
+    pagePrevTop && pagePrevTop.addEventListener("click", prev);
+    pagePrevBottom && pagePrevBottom.addEventListener("click", prev);
+    pageNextTop && pageNextTop.addEventListener("click", next);
+    pageNextBottom && pageNextBottom.addEventListener("click", next);
+
+    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(100));
+    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(200));
+    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(300));
+    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
+
+    pageSize100Bottom && pageSize100Bottom.addEventListener("click", () => setSize(100));
+    pageSize200Bottom && pageSize200Bottom.addEventListener("click", () => setSize(200));
+    pageSize300Bottom && pageSize300Bottom.addEventListener("click", () => setSize(300));
+    pageSizeAllBottom && pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
+
+    syncPageSizeButtonsUI();
+  }
+
+  function syncPageSizeButtonsUI() {
+    const allBtns = [
+      [pageSize100Top, 100], [pageSize200Top, 200], [pageSize300Top, 300], [pageSizeAllTop, Infinity],
+      [pageSize100Bottom, 100], [pageSize200Bottom, 200], [pageSize300Bottom, 300], [pageSizeAllBottom, Infinity],
+    ];
+
+    allBtns.forEach(([btn, val]) => {
+      if (!btn) return;
+      btn.classList.remove("bg-white", "dark:bg-[#1a1926]", "text-primary", "shadow-sm");
+      if (pageSize === val) btn.className = btn.className + " bg-white dark:bg-[#1a1926] text-primary shadow-sm";
+    });
+  }
+
+  function bindDates() {
+    const syncFromTopToBottom = () => {
+      if (dateFromBottom) dateFromBottom.value = dateFromTop?.value || "";
+      if (dateToBottom) dateToBottom.value = dateToTop?.value || "";
+    };
+    const syncFromBottomToTop = () => {
+      if (dateFromTop) dateFromTop.value = dateFromBottom?.value || "";
+      if (dateToTop) dateToTop.value = dateToBottom?.value || "";
+    };
+
+    const onChangeTop = () => { syncFromTopToBottom(); page = 1; render(); };
+    const onChangeBottom = () => { syncFromBottomToTop(); page = 1; render(); };
+
+    dateFromTop && dateFromTop.addEventListener("change", onChangeTop);
+    dateToTop && dateToTop.addEventListener("change", onChangeTop);
+
+    dateFromBottom && dateFromBottom.addEventListener("change", onChangeBottom);
+    dateToBottom && dateToBottom.addEventListener("change", onChangeBottom);
+
+    const shiftRange = (dir /* -1 | +1 */) => {
+      // usa top
+      const fromVal = (dateFromTop?.value || "").trim();
+      const toVal = (dateToTop?.value || "").trim();
+
+      if (!fromVal && !toVal) return; // nada que mover
+
+      const from = fromVal ? new Date(fromVal + "T00:00:00") : null;
+      const to = toVal ? new Date(toVal + "T00:00:00") : null;
+
+      // si solo hay uno, movemos 1 día
+      let spanDays = 1;
+      if (from && to) {
+        spanDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / msDay) + 1);
+      }
+
+      const move = (d) => {
+        if (!d) return null;
+        const nd = new Date(d);
+        nd.setDate(nd.getDate() + dir * spanDays);
+        return nd;
+      };
+
+      const nf = move(from);
+      const nt = move(to);
+
+      const toInput = (d) => {
+        if (!d) return "";
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${dd}`;
+      };
+
+      if (dateFromTop) dateFromTop.value = toInput(nf);
+      if (dateToTop) dateToTop.value = toInput(nt);
+
+      syncFromTopToBottom();
+      page = 1;
+      render();
+    };
+
+    const clearRange = () => {
+      if (dateFromTop) dateFromTop.value = "";
+      if (dateToTop) dateToTop.value = "";
+      if (dateFromBottom) dateFromBottom.value = "";
+      if (dateToBottom) dateToBottom.value = "";
+      page = 1;
+      render();
+    };
+
+    rangePrevTop && rangePrevTop.addEventListener("click", () => shiftRange(-1));
+    rangePrevBottom && rangePrevBottom.addEventListener("click", () => shiftRange(-1));
+    rangeNextTop && rangeNextTop.addEventListener("click", () => shiftRange(+1));
+    rangeNextBottom && rangeNextBottom.addEventListener("click", () => shiftRange(+1));
+
+    rangeClearTop && rangeClearTop.addEventListener("click", clearRange);
+    rangeClearBottom && rangeClearBottom.addEventListener("click", clearRange);
+  }
+
+  function bindActions() {
+    btnActualizar && btnActualizar.addEventListener("click", cargarDatos);
+
+    btnExportarTodo && btnExportarTodo.addEventListener("click", () => {
+      exportXLSX(allRows, `historico_todo_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    });
+
+    btnExportarVista && btnExportarVista.addEventListener("click", () => {
+      const base = applyFiltersBase(allRows);
+      const view = applyViewMode(base);
+      exportXLSX(view, `historico_vista_${viewMode}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    });
+  }
+
+  function bindFab() {
+    fabTop && fabTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    fabBottom && fabBottom.addEventListener("click", () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+  }
+
+  function bindLogout() {
+    const show = () => logoutModal && logoutModal.classList.remove("hidden");
+    const hide = () => logoutModal && logoutModal.classList.add("hidden");
+
+    btnLogout && btnLogout.addEventListener("click", show);
+    logoutCancel && logoutCancel.addEventListener("click", hide);
+    logoutConfirm && logoutConfirm.addEventListener("click", async () => { await doLogout(); });
+
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+
+    // click fuera (modal overlay)
+    logoutModal && logoutModal.addEventListener("click", (e) => {
+      if (e.target === logoutModal) hide();
+    });
+  }
+
+  function bindDragScroll() {
     if (!tablaWrapper) return;
 
     let isDown = false;
     let startX = 0;
-    let scrollLeftStart = 0;
+    let scrollLeft = 0;
 
-    const shouldIgnoreTarget = (target) => !!target?.closest("input,button,select,textarea,label,a");
-
-    const onDown = (e) => {
-      if (shouldIgnoreTarget(e.target)) return;
+    tablaWrapper.addEventListener("mousedown", (e) => {
       isDown = true;
       tablaWrapper.classList.add("dragging");
-      startX = e.clientX;
-      scrollLeftStart = tablaWrapper.scrollLeft;
-      try {
-        tablaWrapper.setPointerCapture(e.pointerId);
-      } catch (_) {}
-      e.preventDefault();
-    };
+      startX = e.pageX - tablaWrapper.offsetLeft;
+      scrollLeft = tablaWrapper.scrollLeft;
+    });
 
-    const onMove = (e) => {
-      if (!isDown) return;
-      const walk = e.clientX - startX;
-      tablaWrapper.scrollLeft = scrollLeftStart - walk;
-      e.preventDefault();
-    };
-
-    const onUp = () => {
-      if (!isDown) return;
+    tablaWrapper.addEventListener("mouseleave", () => {
       isDown = false;
       tablaWrapper.classList.remove("dragging");
-    };
-
-    on(tablaWrapper, "pointerdown", onDown, { passive: false });
-    on(tablaWrapper, "pointermove", onMove, { passive: false });
-    on(tablaWrapper, "pointerup", onUp);
-    on(tablaWrapper, "pointercancel", onUp);
-    on(tablaWrapper, "pointerleave", onUp);
-
-    on(tablaWrapper, "dragstart", (e) => e.preventDefault());
-  }
-
-  // ====== LOGOUT (REAL) ======
-  function initLogout() {
-    if (!btnLogout || !logoutModal || !logoutCancel || !logoutConfirm) return;
-
-    on(btnLogout, "click", () => show(logoutModal));
-    on(logoutCancel, "click", () => hide(logoutModal));
-
-    on(logoutConfirm, "click", async () => {
-      // evita doble click
-      logoutConfirm.disabled = true;
-      logoutConfirm.classList.add("opacity-70", "pointer-events-none");
-      await doLogout();
     });
 
-    on(logoutModal, "click", (e) => {
-      if (e.target === logoutModal) hide(logoutModal);
+    tablaWrapper.addEventListener("mouseup", () => {
+      isDown = false;
+      tablaWrapper.classList.remove("dragging");
     });
 
-    // ESC
-    on(document, "keydown", (e) => {
-      if (e.key === "Escape") hide(logoutModal);
+    tablaWrapper.addEventListener("mousemove", (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - tablaWrapper.offsetLeft;
+      const walk = (x - startX) * 1.2;
+      tablaWrapper.scrollLeft = scrollLeft - walk;
     });
   }
 
-  // ====== INIT LISTENERS ======
-  function initTabs() {
-    on(btnIngresoTab, "click", () => {
-      vistaActual = "ingreso";
-      setTabStyles();
-      pageIndex = 1;
-      aplicarFiltrosYRender();
-    });
+  // ---------- carga ----------
+  async function cargarDatos() {
+    try {
+      btnActualizar && (btnActualizar.disabled = true);
 
-    on(btnSalidaTab, "click", () => {
-      vistaActual = "salida";
-      setTabStyles();
-      pageIndex = 1;
-      aplicarFiltrosYRender();
-    });
+      const res = await apiFetch("/api/historicoiys");
+      if (!res.ok) throw new Error("No se pudo cargar histórico");
+
+      const data = await res.json();
+      allRows = Array.isArray(data) ? data : [];
+
+      // limpia selección si cambió dataset
+      selectedKeys.clear();
+      page = 1;
+
+      render();
+    } catch (e) {
+      console.error(e);
+      alert("Error cargando datos (revisa consola / backend).");
+    } finally {
+      btnActualizar && (btnActualizar.disabled = false);
+    }
   }
 
-  function initActions() {
-    on(btnActualizar, "click", cargarDatos);
-    on(btnExportarVista, "click", exportarVistaActual);
-    on(btnExportarTodo, "click", exportarTodo);
-  }
-
-  function initPager() {
-    const setSize = (n) => {
-      pageSize = n;
-      pageIndex = 1;
-      setPageSizeStyles();
-      aplicarFiltrosYRender();
-    };
-
-    on(pageSize100Top, "click", () => setSize(100));
-    on(pageSize200Top, "click", () => setSize(200));
-    on(pageSize300Top, "click", () => setSize(300));
-    on(pageSizeAllTop, "click", () => setSize(Infinity));
-
-    on(pageSize100Bottom, "click", () => setSize(100));
-    on(pageSize200Bottom, "click", () => setSize(200));
-    on(pageSize300Bottom, "click", () => setSize(300));
-    on(pageSizeAllBottom, "click", () => setSize(Infinity));
-
-    const prev = () => {
-      pageIndex = Math.max(1, pageIndex - 1);
-      aplicarFiltrosYRender();
-    };
-
-    const next = () => {
-      pageIndex = pageIndex + 1;
-      aplicarFiltrosYRender();
-    };
-
-    on(pagePrevTop, "click", prev);
-    on(pagePrevBottom, "click", prev);
-    on(pageNextTop, "click", next);
-    on(pageNextBottom, "click", next);
-  }
-
-  function initDateNav() {
-    const onChangeTop = () => applyDateChange(dateFromTop?.value || "", dateToTop?.value || "");
-    const onChangeBottom = () =>
-      applyDateChange(dateFromBottom?.value || "", dateToBottom?.value || "");
-
-    on(dateFromTop, "change", onChangeTop);
-    on(dateToTop, "change", onChangeTop);
-    on(dateFromBottom, "change", onChangeBottom);
-    on(dateToBottom, "change", onChangeBottom);
-
-    on(rangeClearTop, "click", () => applyDateChange("", ""));
-    on(rangeClearBottom, "click", () => applyDateChange("", ""));
-
-    on(rangePrevTop, "click", () => moveDateRange(-1));
-    on(rangePrevBottom, "click", () => moveDateRange(-1));
-    on(rangeNextTop, "click", () => moveDateRange(1));
-    on(rangeNextBottom, "click", () => moveDateRange(1));
-  }
-
-  function initFab() {
-    on(fabTop, "click", () => {
-      (pageTop || document.documentElement).scrollIntoView({ behavior: "smooth" });
-    });
-    on(fabBottom, "click", () => {
-      (pageBottom || document.documentElement).scrollIntoView({ behavior: "smooth" });
-    });
-  }
-
-  // ====== INIT ======
-  setTabStyles();
-  setPageSizeStyles();
-  syncDateInputs();
-
-  initTabs();
-  initActions();
-  initPager();
-  initDateNav();
-  initDragScroll();
-  initLogout();
-  initFab();
+  // ---------- init ----------
+  bindTabs();
+  bindPager();
+  bindDates();
+  bindActions();
+  bindFab();
+  bindLogout();
+  bindDragScroll();
 
   cargarDatos();
 });

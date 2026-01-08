@@ -39,7 +39,6 @@ self.addEventListener("activate", (event) => {
           .filter((k) => k.startsWith("ganados-") && ![STATIC_CACHE, RUNTIME_CACHE].includes(k))
           .map((k) => caches.delete(k))
       );
-
       await self.clients.claim();
     })()
   );
@@ -47,9 +46,7 @@ self.addEventListener("activate", (event) => {
 
 // Permite forzar activación desde g-pwa.js
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -58,16 +55,21 @@ self.addEventListener("fetch", (event) => {
   // Solo GET
   if (req.method !== "GET") return;
 
-  const url = new URL(req.url);
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (_) {
+    return;
+  }
 
-  // ✅ 1) NO tocar esquemas raros (chrome-extension://, moz-extension://, etc.)
+  // ✅ 1) NO tocar esquemas raros (chrome-extension:, file:, etc.)
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
-  // ✅ 2) NO interceptar ni cachear recursos que NO sean same-origin
-  // (evita fallos con extensiones / cdn / etc. y deja que el navegador maneje eso)
+  // ✅ 2) NO tocar requests de terceros (CDNs, extensiones, etc.)
+  // Esto evita el error de cache.put con chrome-extension y reduce ruido.
   if (url.origin !== self.location.origin) return;
 
-  // ✅ 3) No interceptar requests a la API
+  // No interceptar requests a la API
   if (url.pathname.startsWith("/api/")) return;
 
   // 1) Navegaciones (HTML): NETWORK FIRST
@@ -76,7 +78,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2) JS/CSS: NETWORK FIRST (evita dashboard.js viejo pegado)
+  // 2) JS/CSS: NETWORK FIRST
   if (url.pathname.endsWith(".js") || url.pathname.endsWith(".css")) {
     event.respondWith(networkFirst(req, RUNTIME_CACHE));
     return;
@@ -91,35 +93,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 4) Default: stale-while-revalidate suave
+  // 4) Default
   event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
 });
 
 // ----------------- estrategias -----------------
-
-function isCacheableResponse(res) {
-  // ✅ NO cachear 500/404/etc.
-  return res && res.ok;
-}
-
-async function safePut(cache, req, res) {
-  // ✅ Evita que un put tumbe el SW si algo raro pasa
-  try {
-    await cache.put(req, res);
-  } catch (_) {
-    // ignorar errores de cache.put
-  }
-}
-
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const fresh = await fetch(req);
 
-    // ✅ cachear solo respuestas OK
-    if (isCacheableResponse(fresh)) {
-      await safePut(cache, req, fresh.clone());
-    }
+    // ✅ evita reventar cache.put con respuestas raras
+    try {
+      if (fresh && fresh.ok) await cache.put(req, fresh.clone());
+    } catch (_) {}
 
     return fresh;
   } catch (e) {
@@ -135,10 +122,9 @@ async function cacheFirst(req, cacheName) {
 
   const fresh = await fetch(req);
 
-  // ✅ cachear solo respuestas OK
-  if (isCacheableResponse(fresh)) {
-    await safePut(cache, req, fresh.clone());
-  }
+  try {
+    if (fresh && fresh.ok) await cache.put(req, fresh.clone());
+  } catch (_) {}
 
   return fresh;
 }
@@ -149,9 +135,9 @@ async function staleWhileRevalidate(req, cacheName) {
 
   const fetchPromise = fetch(req)
     .then(async (fresh) => {
-      if (isCacheableResponse(fresh)) {
-        await safePut(cache, req, fresh.clone());
-      }
+      try {
+        if (fresh && fresh.ok) await cache.put(req, fresh.clone());
+      } catch (_) {}
       return fresh;
     })
     .catch(() => cached);
