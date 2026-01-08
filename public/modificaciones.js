@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const modSexo = document.getElementById("mod-sexo");
   const modEdad = document.getElementById("mod-edad");
   const modRaza = document.getElementById("mod-raza");
-  const modPesoFinca = document.getElementById("mod-pesoFinca");
   const modPeso = document.getElementById("mod-peso");
   const modMarca = document.getElementById("mod-marca");
   const modProveedor = document.getElementById("mod-proveedor");
@@ -215,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     modSexo.value = reg.Sexo ?? "";
     modEdad.value = reg.Edad ?? "";
     modRaza.value = reg.Raza ?? "...";
-    modPesoFinca.value = reg.PesoFinca ?? 0;
+    
     modPeso.value = reg.Peso ?? 0;
     modMarca.value = reg.Marcallegada ?? "";
     modProveedor.value = reg.Proveedor ?? "";
@@ -393,7 +392,6 @@ document.addEventListener("DOMContentLoaded", () => {
       Mermas: toFloat(modMermas.value, 0),
 
       Proveedor: modProveedor.value || null,
-      PesoFinca: toFloat(modPesoFinca.value, 0),
     };
 
     setLoading("Guardando cambios…", "Actualizando registro en la base de datos.");

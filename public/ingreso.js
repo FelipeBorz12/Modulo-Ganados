@@ -1,4 +1,3 @@
-// public/ingreso.js
 document.addEventListener("DOMContentLoaded", () => {
   // ====== FORM INGRESO ======
   const form = document.getElementById("form-ingreso");
@@ -10,7 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const sexo = document.getElementById("sexo");
   const edad = document.getElementById("edad");
   const raza = document.getElementById("raza");
-  const pesoFinca = document.getElementById("pesoFinca");
   const peso = document.getElementById("peso");
   const marca = document.getElementById("marca");
   const proveedor = document.getElementById("proveedor");
@@ -208,7 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
     fincasCache.forEach((f) => {
       const opt = document.createElement("option");
       opt.value = f.Indicativo;
-      opt.textContent = f.Indicativo === "..." ? "SIN ESPECIFICAR (...)" : f.Indicativo;
+      opt.textContent =
+        f.Indicativo === "..." ? "SIN ESPECIFICAR (...)" : f.Indicativo;
       fincaSelect.appendChild(opt);
     });
 
@@ -222,7 +221,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const q = (fincasSearch?.value ?? "").toString().trim().toUpperCase();
     const rows = !q
       ? fincasCache
-      : fincasCache.filter((f) => (f.Indicativo || "").toUpperCase().includes(q));
+      : fincasCache.filter((f) =>
+          (f.Indicativo || "").toUpperCase().includes(q)
+        );
 
     fincasTableBody.innerHTML = "";
 
@@ -244,7 +245,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Indicativo
       const tdName = document.createElement("td");
-      tdName.className = "px-4 py-3 text-gray-800 dark:text-gray-100 font-semibold";
+      tdName.className =
+        "px-4 py-3 text-gray-800 dark:text-gray-100 font-semibold";
       tdName.textContent =
         f.Indicativo === "..." ? "SIN ESPECIFICAR (...)" : f.Indicativo;
 
@@ -256,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ${Number(f.asociados || 0).toLocaleString("es-CO")}
       </span>`;
 
-      // acciones
+      // ✅ acciones (solo renombrar)
       const tdAct = document.createElement("td");
       tdAct.className = "px-4 py-3";
 
@@ -269,22 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "inline-flex items-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-3 py-2 text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition";
       btnEdit.innerHTML = `<span class="material-symbols-outlined text-[18px]">edit</span> Renombrar`;
 
-      const btnDel = document.createElement("button");
-      btnDel.type = "button";
-      const canDelete = f.Indicativo !== "...";
-      btnDel.className =
-        "inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs md:text-sm font-extrabold shadow-sm transition " +
-        (canDelete
-          ? "bg-rose-600 text-white hover:bg-rose-700"
-          : "bg-gray-200 dark:bg-gray-800 text-gray-500 cursor-not-allowed");
-      btnDel.innerHTML = `<span class="material-symbols-outlined text-[18px]">delete</span> Eliminar`;
-
       btnEdit.addEventListener("click", () => openEditFinca(f));
-      if (canDelete) btnDel.addEventListener("click", () => deleteFincaCascade(f));
 
       wrap.appendChild(btnEdit);
-      wrap.appendChild(btnDel);
-
       tdAct.appendChild(wrap);
 
       tr.appendChild(tdName);
@@ -439,64 +428,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  async function deleteFincaCascade(finca) {
-    if (finca.Indicativo === "...") {
-      showActionError("No permitido", 'No se puede eliminar la finca "...".');
-      return;
-    }
-
-    // Confirmación fuerte (explicita cascada)
-    const ok = await confirmDialog({
-      title: "Eliminar finca (cascada)",
-      message:
-        `Vas a eliminar la finca "${finca.Indicativo}".\n\n` +
-        `⚠️ Esto también eliminará TODOS los registros del histórico asociados (${Number(
-          finca.asociados || 0
-        ).toLocaleString("es-CO")} aprox.).\n\n` +
-        `¿Deseas continuar?`,
-      acceptText: "Eliminar",
-    });
-    if (!ok) return;
-
-    try {
-      setLoading("Eliminando finca…", "Borrando finca y registros asociados.");
-      show(loadingModal);
-
-      const res = await fetch(
-        `/api/fincas/${encodeURIComponent(finca.id)}?cascade=1`,
-        { method: "DELETE" }
-      );
-
-      hide(loadingModal);
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        showActionError("No se pudo eliminar", err.error || "Error eliminando finca.");
-        return;
-      }
-
-      const out = await res.json().catch(() => ({}));
-      const deletedHistorico = Number(out.deletedHistorico || 0);
-
-      // Si estaba seleccionada, limpiar select
-      if (fincaSelect.value === finca.Indicativo) {
-        fincaSelect.value = "";
-      }
-
-      await cargarFincas();
-
-      showActionSuccess(
-        "Finca eliminada",
-        `Se eliminó "${finca.Indicativo}". Registros del histórico eliminados: ${deletedHistorico.toLocaleString(
-          "es-CO"
-        )}.`
-      );
-    } catch (e) {
-      hide(loadingModal);
-      showActionError("Error", e.message || "Error eliminando finca.");
-    }
-  }
-
   // Events fincas
   btnAddFinca.addEventListener("click", agregarFinca);
   newFincaName.addEventListener("keydown", (e) => {
@@ -522,8 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isDirty) {
         const ok = await confirmDialog({
           title: "Cerrar sesión",
-          message:
-            "Tienes cambios sin guardar. ¿Quieres salir de todas formas?",
+          message: "Tienes cambios sin guardar. ¿Quieres salir de todas formas?",
           acceptText: "Salir",
         });
         if (!ok) return;
@@ -537,8 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isDirty) {
         const ok = await confirmDialog({
           title: "Volver",
-          message:
-            "Tienes cambios sin guardar. ¿Quieres volver y perderlos?",
+          message: "Tienes cambios sin guardar. ¿Quieres volver y perderlos?",
           acceptText: "Volver",
         });
         if (!ok) return;
@@ -590,7 +519,8 @@ document.addEventListener("DOMContentLoaded", () => {
       !marca.value ||
       !fincaSelect.value
     ) {
-      warningMessage.textContent = "Por favor completa todos los campos obligatorios.";
+      warningMessage.textContent =
+        "Por favor completa todos los campos obligatorios.";
       show(warningModal);
       return;
     }
@@ -611,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
       Comision: parseFloat(comision.value) || 0,
       Mermas: parseFloat(mermas.value) || 0,
       Proveedor: proveedor.value || null,
-      PesoFinca: parseFloat(pesoFinca.value) || 0,
+      // ✅ PesoFinca eliminado
     };
 
     setLoading("Guardando ingreso…", "Registrando ingreso en el histórico.");
@@ -628,7 +558,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        errorMessage.textContent = err.error || "Ocurrió un error al registrar el ingreso.";
+        errorMessage.textContent =
+          err.error || "Ocurrió un error al registrar el ingreso.";
         show(errorModal);
         return;
       }

@@ -547,10 +547,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderTotales(baseRows) {
+    // contexto total (dataset completo)
     const totalContexto = allRows.length;
+
+    // dentro del filtro actual (fechas + búsqueda)
     const totalFiltrado = baseRows.length;
+
+    // salidas dentro del filtro
     const totalSalidas = baseRows.filter(hasSalida).length;
 
+    // ✅ ingresos = registros SIN salida dentro del filtro
+    const totalIngresos = baseRows.filter((r) => !hasSalida(r)).length; // (filtrados - salidas)
+
+    // Dinero y utilidad SOLO en salidas (tiene sentido)
     const salidas = baseRows.filter(hasSalida);
     const sumIng = salidas.reduce(
       (a, r) => a + (Number(r.totalIngreso) || 0),
@@ -566,7 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elTotalGeneral)
       elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
     if (elTotalIngresos)
-      elTotalIngresos.textContent = totalFiltrado.toLocaleString("es-CO");
+      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
     if (elTotalSalidas)
       elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
 
@@ -929,7 +938,6 @@ document.addEventListener("DOMContentLoaded", () => {
       { key: "Edad", label: "Edad" },
       { key: "Marcallegada", label: "Marca" },
       { key: "Proveedor", label: "Proveedor" },
-      // ✅ precios al final
       { key: "ValorKGingreso", label: "$/kg compra" },
       { key: "totalIngreso", label: "Total compra" },
       { key: "_actions", label: "" },
