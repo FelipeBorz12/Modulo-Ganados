@@ -2,7 +2,7 @@
 
 // ✅ Cambia esta versión cuando despliegues cambios importantes
 // (puedes poner fecha/hora). Solo con cambiar esto ya rompe caché viejo.
-const VERSION = "2026-01-05-01";
+const VERSION = "2026-01-07-01";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
