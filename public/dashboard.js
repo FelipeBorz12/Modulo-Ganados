@@ -1,11 +1,21 @@
 // public/dashboard.js
 document.addEventListener("DOMContentLoaded", () => {
   // ==============================
-  // DASHBOARD (TU HTML NUEVO)
+  // DASHBOARD (HTML NUEVO + UX COMPLETA)
+  // - Loading modal inicial
+  // - Predicción: clamp móvil + modal “ver más”
+  // - Búsqueda fluida (debounce)
+  // - Orden select
+  // - Tabla: copiar número + borrar a la derecha + selección + columnas reorganizadas
   // ==============================
 
   // ---------- helpers DOM ----------
   const $ = (id) => document.getElementById(id);
+  const showEl = (el) => el && el.classList.remove("hidden");
+  const hideEl = (el) => el && el.classList.add("hidden");
+
+  // Loading
+  const loadingModal = $("loading-modal");
 
   // Tabla
   const tablaHead = $("tabla-head");
@@ -21,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnExportarTodo = $("btn-exportar-todo");
   const btnExportarVista = $("btn-exportar-vista");
 
-  // Info selección (texto)
+  // Info selección
   const selectionInfo = $("selection-info");
   const selectionInfoMobile = $("selection-info-mobile");
 
@@ -41,6 +51,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const elStatValorIng = $("stat-valor-ing");
   const elStatValorSal = $("stat-valor-sal");
   const elStatPred = $("stat-prediccion");
+  const predMoreBtn = $("pred-more-btn");
+  const predFade = $("pred-fade");
+
+  // Pred modal
+  const predModal = $("pred-modal");
+  const predModalContent = $("pred-modal-content");
+  const predModalCloseX = $("pred-modal-close-x");
+  const predModalAccept = $("pred-modal-accept");
+
+  // Search + sort
+  const searchQ = $("search-q");
+  const searchClear = $("search-clear");
+  const sortBy = $("sort-by");
 
   // Date range (top)
   const dateFromTop = $("date-from-top");
@@ -84,6 +107,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoutCancel = $("logout-cancel");
   const logoutConfirm = $("logout-confirm");
 
+  // Delete modal
+  const deleteModal = $("delete-modal");
+  const deleteCancel = $("delete-cancel");
+  const deleteConfirm = $("delete-confirm");
+  const deleteModalSub = $("delete-modal-sub");
+
   // ---------- estado ----------
   let allRows = [];
   let viewMode = "ingreso"; // "ingreso" | "salida"
@@ -93,6 +122,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Selección (por id si existe; si no, por Numero)
   const selectedKeys = new Set();
+
+  // Search debounce
+  let searchTimer = null;
+  let searchValue = "";
+
+  // Pred html (full)
+  let predFullHTML = "-";
+
+  // Delete state
+  let pendingDeleteNumero = null;
 
   // ---------- formatos ----------
   const msDay = 24 * 60 * 60 * 1000;
@@ -134,7 +173,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const rowKey = (r) => {
-    // prefer id, fallback Numero
     if (r && (r.id !== undefined && r.id !== null)) return `id:${r.id}`;
     return `num:${r?.Numero ?? ""}`;
   };
@@ -143,6 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const ps = Number(r?.PesoSalida) || 0;
     return !!(r?.FechaSalida && ps > 0);
   };
+
+  const safeText = (v) => (v === null || v === undefined ? "" : String(v));
+
+  // ✅ envuelve números para que nunca partan línea
+  const nw = (s) => `<span class="kpi-number">${s}</span>`;
 
   // ---------- API ----------
   async function apiFetch(url, options = {}) {
@@ -161,9 +204,16 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "/";
   }
 
+  async function deleteByNumero(numero) {
+    const res = await apiFetch(`/api/historicoiys/${encodeURIComponent(numero)}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(txt || "No se pudo eliminar");
+    }
+  }
+
   // ---------- filtros ----------
   function getDateRangeFromInputs() {
-    // usamos top como fuente principal
     const fromVal = (dateFromTop?.value || "").trim();
     const toVal = (dateToTop?.value || "").trim();
 
@@ -191,12 +241,66 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // búsqueda (fluida)
+    const q = (searchValue || "").trim().toLowerCase();
+    if (q) {
+      out = out.filter((r) => {
+        const fields = [
+          r.Numero,
+          r.FincaIndicativo,
+          r.FincaNombre,
+          r.Finca,
+          r.Sexo,
+          r.Edad,
+          r.Marcallegada,
+          r.Destino,
+          r.Raza,
+          r.Color,
+          r.Proveedor,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return fields.includes(q);
+      });
+    }
+
     return out;
   }
 
   function applyViewMode(rows) {
     if (viewMode === "salida") return rows.filter(hasSalida);
     return rows;
+  }
+
+  function applySort(rows) {
+    const key = sortBy?.value || "fecha_ing_desc";
+
+    const getTime = (iso) => {
+      const d = parseISODate(iso);
+      return d ? d.getTime() : 0;
+    };
+
+    const copy = [...rows];
+
+    // Nota: utilidad/días solo sentido en salidas; si no hay, cae a 0.
+    copy.sort((a, b) => {
+      if (key === "fecha_ing_desc") return getTime(b.FechaIngreso) - getTime(a.FechaIngreso);
+      if (key === "fecha_ing_asc") return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
+
+      if (key === "peso_desc") return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
+      if (key === "peso_asc") return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
+
+      if (key === "utilidad_desc") return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
+      if (key === "utilidad_asc") return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
+
+      if (key === "dias_desc") return (Number(b.dias) || 0) - (Number(a.dias) || 0);
+      if (key === "dias_asc") return (Number(a.dias) || 0) - (Number(b.dias) || 0);
+
+      return 0;
+    });
+
+    return copy;
   }
 
   // ---------- cálculos negocio ----------
@@ -220,7 +324,53 @@ document.addEventListener("DOMContentLoaded", () => {
     const dias = hasSalida(r) ? diffDays(r.FechaIngreso, r.FechaSalida) : null;
     const gananciaKg = hasSalida(r) ? (pesoSal - pesoIng) : null;
 
-    return { ...r, _pesoIng: pesoIng, _pesoSal: pesoSal, _vIng: vIng, _vSal: vSal, totalIngreso, totalSalida, costos, utilidad, dias, gananciaKg };
+    return {
+      ...r,
+      _pesoIng: pesoIng,
+      _pesoSal: pesoSal,
+      _vIng: vIng,
+      _vSal: vSal,
+      totalIngreso,
+      totalSalida,
+      costos,
+      utilidad,
+      dias,
+      gananciaKg,
+    };
+  }
+
+  // ---------- predicción: clamp móvil + modal ----------
+  function isMobile() {
+    return !window.matchMedia("(min-width: 768px)").matches;
+  }
+
+  function applyPredView() {
+    if (!elStatPred) return;
+
+    elStatPred.innerHTML = predFullHTML || "-";
+
+    if (isMobile()) {
+      // clamp 3 líneas + mostrar botón
+      elStatPred.classList.add("clamp-3");
+      showEl(predMoreBtn);
+      // el “fade” es un div vacío solo para aplicar el pseudo overlay (ya está en CSS)
+      showEl(predFade);
+    } else {
+      // desktop: sin clamp y sin botón
+      elStatPred.classList.remove("clamp-3");
+      hideEl(predMoreBtn);
+      hideEl(predFade);
+    }
+  }
+
+  function openPredModal() {
+    if (!predModal || !predModalContent) return;
+    predModalContent.innerHTML = predFullHTML || "-";
+    showEl(predModal);
+  }
+
+  function closePredModal() {
+    hideEl(predModal);
   }
 
   // ---------- render ----------
@@ -249,7 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const base = applyFiltersBase(allRows).map(enrichRow);
 
-    // Totales globales (sobre el filtro, no importa el tab)
+    // Totales globales (sobre el filtro)
     renderTotales(base);
 
     // Estadísticas (sobre salidas dentro del filtro)
@@ -257,19 +407,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Vista tabla según tab
     const view = applyViewMode(base);
+    const sortedView = applySort(view);
 
     // Paginación
-    const size = pageSize === Infinity ? view.length : pageSize;
-    const maxPage = Math.max(1, Math.ceil(view.length / Math.max(1, size)));
+    const size = pageSize === Infinity ? sortedView.length : pageSize;
+    const maxPage = Math.max(1, Math.ceil(sortedView.length / Math.max(1, size)));
     if (page > maxPage) page = maxPage;
 
     const startIdx = (page - 1) * size;
-    const pageRows = view.slice(startIdx, startIdx + size);
+    const pageRows = sortedView.slice(startIdx, startIdx + size);
 
-    renderPager(view.length, pageRows.length, startIdx);
-    renderTable(pageRows, viewMode);
+    renderPager(sortedView.length, pageRows.length, startIdx);
+    renderTable(pageRows, viewMode, sortedView);
 
-    updateSelectionInfo(view, pageRows);
+    updateSelectionInfo(sortedView, pageRows);
   }
 
   function renderTotales(baseRows) {
@@ -277,7 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalFiltrado = baseRows.length;
     const totalSalidas = baseRows.filter(hasSalida).length;
 
-    // Dinero y utilidad SOLO en salidas (tiene sentido)
+    // dinero y utilidad solo en salidas
     const salidas = baseRows.filter(hasSalida);
     const sumIng = salidas.reduce((a, r) => a + (Number(r.totalIngreso) || 0), 0);
     const sumSal = salidas.reduce((a, r) => a + (Number(r.totalSalida) || 0), 0);
@@ -341,9 +492,8 @@ document.addEventListener("DOMContentLoaded", () => {
       { MACHO: 0, HEMBRA: 0, OTRO: 0, "N/A": 0 }
     );
 
-    // --- sugerencia por buckets de Peso ingreso, optimizando utilidad ---
+    // --- buckets por peso de ingreso, optimizando utilidad ---
     function bestBucket(rows, step = 25) {
-      // requiere: salidas con peso, días y utilidad
       const buckets = new Map();
 
       for (const r of rows) {
@@ -379,7 +529,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const avgMarg = avgIng > 0 ? (avgU / avgIng) * 100 : 0;
           return { ...b, avgU, avgD, avgUDia, avgMarg };
         })
-        .filter((b) => b.n >= 3); // mínimo para “no inventar”
+        .filter((b) => b.n >= 3);
 
       if (!stats.length) return null;
 
@@ -391,84 +541,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sugGlobal = bestBucket(baseRows, 25);
 
-    // si hay suficientes datos por sexo, también sacamos recomendación
-    const salidasM = baseRows.filter((r) => normSexo(r.Sexo) === "MACHO");
-    const salidasH = baseRows.filter((r) => normSexo(r.Sexo) === "HEMBRA");
-    const sugM = bestBucket(salidasM, 25);
-    const sugH = bestBucket(salidasH, 25);
+    const bySexo = (sx) => baseRows.filter((r) => normSexo(r.Sexo) === sx);
+    const sugM = bestBucket(bySexo("MACHO"), 25);
+    const sugH = bestBucket(bySexo("HEMBRA"), 25);
 
-    // --- mensaje “Predicción simple” (en realidad: sugerencia útil) ---
-    if (elStatPred) {
-      const parts = [];
+    // --- construir HTML completo ---
+    const parts = [];
 
-      parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
-      parts.push(`• Registros filtrados: <strong>${baseRows.length.toLocaleString("es-CO")}</strong>`);
-      parts.push(`• Salidas en el filtro: <strong>${salidas.length.toLocaleString("es-CO")}</strong>`);
+    parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
+    parts.push(`• Registros filtrados: <strong>${nw(baseRows.length.toLocaleString("es-CO"))}</strong>`);
+    parts.push(`• Salidas en el filtro: <strong>${nw(salidas.length.toLocaleString("es-CO"))}</strong>`);
 
+    parts.push(
+      `• Sexo: Machos <strong>${nw(sexCounts.MACHO.toLocaleString("es-CO"))}</strong>, Hembras <strong>${nw(sexCounts.HEMBRA.toLocaleString("es-CO"))}</strong>` +
+        (sexCounts["N/A"] ? `, Sin dato ${nw(sexCounts["N/A"].toLocaleString("es-CO"))}` : "") +
+        (sexCounts.OTRO ? `, Otros ${nw(sexCounts.OTRO.toLocaleString("es-CO"))}` : "")
+    );
+
+    if (!salidas.length) {
       parts.push(
-        `• Sexo: Machos <strong>${sexCounts.MACHO.toLocaleString("es-CO")}</strong>, Hembras <strong>${sexCounts.HEMBRA.toLocaleString("es-CO")}</strong>` +
-          (sexCounts["N/A"] ? `, Sin dato ${sexCounts["N/A"].toLocaleString("es-CO")}` : "") +
-          (sexCounts.OTRO ? `, Otros ${sexCounts.OTRO.toLocaleString("es-CO")}` : "")
+        `<br><span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
       );
-
-      if (!salidas.length) {
-        parts.push(
-          `<span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
-        );
-        elStatPred.innerHTML = parts.join("<br>");
-        return;
-      }
-
-      if (d !== null) parts.push(`• Días promedio en finca (salidas): <strong>${d.toFixed(1)}</strong> días`);
-      if (u !== null) {
-        parts.push(`• Utilidad promedio por animal: <strong>${fmtMoney(u)}</strong>` + (margenPct === null ? "" : ` (<strong>${margenPct.toFixed(2)}%</strong>)`));
-      }
-      if (uDia !== null) parts.push(`• Utilidad promedio por día: <strong>${fmtMoney(uDia)}</strong>`);
-      if (g !== null) parts.push(`• Ganancia de peso promedio: <strong>${g.toFixed(1)} kg</strong>` + (kgDia === null ? "" : ` (~<strong>${kgDia.toFixed(2)} kg/día</strong>)`));
-
-      // Sugerencia global
-      if (sugGlobal?.bestPorDia) {
-        const b = sugGlobal.bestPorDia;
-        const c = sugGlobal.bestTotal;
-
-        parts.push(`<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`);
-        parts.push(
-          `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${b.start}-${b.end} kg</strong> fue tu mejor rango (n=${b.n}). ` +
-            `Prom: <strong>${fmtMoney(b.avgU)}</strong> en <strong>${b.avgD.toFixed(1)} días</strong> (= ${fmtMoney(b.avgUDia)}/día).`
-        );
-
-        if (c && c.key !== b.key) {
-          parts.push(
-            `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${c.start}-${c.end} kg</strong> fue el mejor (n=${c.n}). ` +
-              `Prom: <strong>${fmtMoney(c.avgU)}</strong> por animal (margen ~${c.avgMarg.toFixed(2)}%).`
-          );
-        }
-      } else {
-        parts.push(
-          `<br><strong>Sugerencia de peso:</strong> todavía no hay suficientes salidas “completas” (peso/días/utilidad) para recomendar un rango con confianza (mínimo 3 casos por rango).`
-        );
-      }
-
-      // Sugerencia por sexo (si alcanza)
-      const sexoSugLines = [];
-      if (sugM?.bestPorDia) {
-        const b = sugM.bestPorDia;
-        sexoSugLines.push(`• <strong>Machos</strong>: mejor por día <strong>${b.start}-${b.end} kg</strong> (n=${b.n}).`);
-      }
-      if (sugH?.bestPorDia) {
-        const b = sugH.bestPorDia;
-        sexoSugLines.push(`• <strong>Hembras</strong>: mejor por día <strong>${b.start}-${b.end} kg</strong> (n=${b.n}).`);
-      }
-      if (sexoSugLines.length) {
-        parts.push(`<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join("<br>")}`);
-      }
-
-      parts.push(
-        `<br><span class="text-xs text-gray-500 dark:text-gray-400">Tip: si cambian los precios (compra/venta), usa un rango de fechas reciente; la recomendación puede moverse.</span>`
-      );
-
-      elStatPred.innerHTML = parts.join("<br>");
+      predFullHTML = parts.join("<br>");
+      applyPredView();
+      return;
     }
+
+    if (d !== null) parts.push(`• Días promedio en finca (salidas): <strong>${nw(d.toFixed(1) + " días")}</strong>`);
+    if (u !== null) {
+      parts.push(
+        `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
+          (margenPct === null ? "" : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`)
+      );
+    }
+    if (uDia !== null) parts.push(`• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`);
+    if (g !== null) {
+      parts.push(
+        `• Ganancia de peso promedio: <strong>${nw(g.toFixed(1) + " kg")}</strong>` +
+          (kgDia === null ? "" : ` (~<strong>${nw(kgDia.toFixed(2) + " kg/día")}</strong>)`)
+      );
+    }
+
+    // Sugerencia global
+    if (sugGlobal?.bestPorDia) {
+      const b = sugGlobal.bestPorDia;
+      const c = sugGlobal.bestTotal;
+
+      parts.push(`<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`);
+      parts.push(
+        `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${nw(`${b.start}-${b.end} kg`)}</strong> fue tu mejor rango (n=${nw(String(b.n))}). ` +
+          `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(b.avgD.toFixed(1) + " días")}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`
+      );
+
+      if (c && c.key !== b.key) {
+        parts.push(
+          `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${nw(`${c.start}-${c.end} kg`)}</strong> fue el mejor (n=${nw(String(c.n))}). ` +
+            `Prom: <strong>${nw(fmtMoney(c.avgU))}</strong> por animal (margen ~${nw(c.avgMarg.toFixed(2) + "%")}).`
+        );
+      }
+    } else {
+      parts.push(
+        `<br><strong>Sugerencia de peso:</strong> todavía no hay suficientes salidas “completas” (peso/días/utilidad) para recomendar un rango con confianza (mínimo 3 casos por rango).`
+      );
+    }
+
+    // por sexo
+    const sexoSugLines = [];
+    if (sugM?.bestPorDia) {
+      const b = sugM.bestPorDia;
+      sexoSugLines.push(`• <strong>Machos</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`);
+    }
+    if (sugH?.bestPorDia) {
+      const b = sugH.bestPorDia;
+      sexoSugLines.push(`• <strong>Hembras</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`);
+    }
+    if (sexoSugLines.length) {
+      parts.push(`<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join("<br>")}`);
+    }
+
+    predFullHTML = parts.join("<br>");
+    applyPredView();
   }
 
   function renderPager(total, pageCount, startIdx) {
@@ -499,15 +651,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (selectionInfo) selectionInfo.textContent = msg;
     if (selectionInfoMobile) selectionInfoMobile.textContent = msg;
-
-    // si no hay nada seleccionado, limpiamos el “select all” de header si existe
-    // (lo maneja renderTable)
   }
 
-  function renderTable(rows, mode) {
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (_) {}
+      ta.remove();
+      return ok;
+    }
+  }
+
+  function openDeleteModal(numero) {
+    pendingDeleteNumero = numero;
+    if (deleteModalSub) {
+      deleteModalSub.textContent = `¿Seguro que deseas eliminar el registro del animal ${numero}? Esta acción no se puede deshacer.`;
+    }
+    showEl(deleteModal);
+  }
+
+  function closeDeleteModal() {
+    pendingDeleteNumero = null;
+    hideEl(deleteModal);
+  }
+
+  function renderTable(rows, mode, allViewSorted) {
     if (!tablaHead || !tablaBody) return;
 
-    // columnas según modo
+    // ✅ columnas reorganizadas:
+    // - Ingreso: precios y totales al final
+    // - Salida: todo (incluye costos/utilidad), y acciones al extremo derecho
     const colsIngreso = [
       { key: "_select", label: "" },
       { key: "Numero", label: "Número" },
@@ -515,14 +700,16 @@ document.addEventListener("DOMContentLoaded", () => {
       { key: "Sexo", label: "Sexo" },
       { key: "FechaIngreso", label: "Ingreso" },
       { key: "Peso", label: "Peso (kg)" },
-      { key: "ValorKGingreso", label: "$/kg compra" },
-      { key: "totalIngreso", label: "Total compra" },
       { key: "Raza", label: "Raza" },
       { key: "Color", label: "Color" },
       { key: "Edad", label: "Edad" },
       { key: "Marcallegada", label: "Marca" },
       { key: "Proveedor", label: "Proveedor" },
       { key: "Destino", label: "Destino" },
+      // ✅ precios al final
+      { key: "ValorKGingreso", label: "$/kg compra" },
+      { key: "totalIngreso", label: "Total compra" },
+      { key: "_actions", label: "" },
     ];
 
     const colsSalida = [
@@ -540,8 +727,18 @@ document.addEventListener("DOMContentLoaded", () => {
       { key: "_vSal", label: "$/kg venta" },
       { key: "totalIngreso", label: "Total compra" },
       { key: "totalSalida", label: "Total venta" },
+      { key: "Flete", label: "Flete" },
+      { key: "Comision", label: "Comisión" },
+      { key: "Mermas", label: "Mermas" },
       { key: "costos", label: "Costos" },
       { key: "utilidad", label: "Utilidad" },
+      { key: "Destino", label: "Destino" },
+      { key: "Raza", label: "Raza" },
+      { key: "Color", label: "Color" },
+      { key: "Edad", label: "Edad" },
+      { key: "Marcallegada", label: "Marca" },
+      { key: "Proveedor", label: "Proveedor" },
+      { key: "_actions", label: "" },
     ];
 
     const cols = mode === "salida" ? colsSalida : colsIngreso;
@@ -551,14 +748,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const theadRow = document.createElement("tr");
     theadRow.className = "bg-gray-50 dark:bg-[#232235]";
 
-    // Select-all header checkbox
+    // Select-all header checkbox (solo página)
     const thSelect = document.createElement("th");
     thSelect.className = "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
     const selectAll = document.createElement("input");
     selectAll.type = "checkbox";
     selectAll.className = "rounded border-gray-300 dark:border-gray-600";
 
-    // estado del select-all (solo respecto a las filas de ESTA página)
     const pageKeys = rows.map((r) => rowKey(r));
     const selectedCount = pageKeys.filter((k) => selectedKeys.has(k)).length;
     selectAll.checked = rows.length > 0 && selectedCount === rows.length;
@@ -567,7 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
     selectAll.addEventListener("change", (e) => {
       if (e.target.checked) pageKeys.forEach((k) => selectedKeys.add(k));
       else pageKeys.forEach((k) => selectedKeys.delete(k));
-      render(); // recalcula y re-render
+      render();
     });
 
     thSelect.appendChild(selectAll);
@@ -586,6 +782,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Body
     tablaBody.innerHTML = "";
+
+    const rightCols = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
+    const moneyCols = new Set([
+      "ValorKGingreso",
+      "totalIngreso",
+      "totalSalida",
+      "costos",
+      "utilidad",
+      "_vIng",
+      "_vSal",
+      "Flete",
+      "Comision",
+      "Mermas",
+    ]);
 
     rows.forEach((r) => {
       const tr = document.createElement("tr");
@@ -609,17 +819,59 @@ document.addEventListener("DOMContentLoaded", () => {
       td0.appendChild(chk);
       tr.appendChild(td0);
 
-      // cells
       cols.slice(1).forEach((c) => {
         const td = document.createElement("td");
         td.className = "px-3 py-2 whitespace-nowrap";
 
+        // acciones (borrar al extremo derecho)
+        if (c.key === "_actions") {
+          td.className = "px-3 py-2 whitespace-nowrap text-right";
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className =
+            "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition";
+          btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">delete</span> Borrar`;
+          btn.addEventListener("click", () => {
+            const numero = r?.Numero ?? "";
+            if (!numero) return alert("No se pudo identificar el Número para borrar.");
+            openDeleteModal(numero);
+          });
+          td.appendChild(btn);
+          tr.appendChild(td);
+          return;
+        }
+
+        // Número: incluye botón copiar
+        if (c.key === "Numero") {
+          const numero = safeText(r.Numero);
+          td.className = "px-3 py-2 whitespace-nowrap";
+          td.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold">${numero}</span>
+              <button type="button"
+                class="inline-flex items-center justify-center size-8 rounded-full bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 transition"
+                aria-label="Copiar número"
+                title="Copiar número"
+                data-copy="${numero}"
+              >
+                <span class="material-symbols-outlined text-[18px] text-gray-700 dark:text-gray-200">content_copy</span>
+              </button>
+            </div>
+          `;
+          td.querySelector("button")?.addEventListener("click", async (e) => {
+            const val = e.currentTarget.getAttribute("data-copy") || "";
+            if (!val) return;
+            const ok = await copyToClipboard(val);
+            if (!ok) alert("No se pudo copiar. Intenta nuevamente.");
+          });
+          tr.appendChild(td);
+          return;
+        }
+
         let v = r[c.key];
 
-        // Finca (tu tabla usa "Finca" como texto; a veces llega "FincaNombre/FincaIndicativo")
-        if (c.key === "Finca") {
-          v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
-        }
+        // Finca (varios nombres)
+        if (c.key === "Finca") v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
 
         // fechas
         if (c.key === "FechaIngreso" || c.key === "FechaSalida") {
@@ -630,16 +882,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // num formatting
-        const right = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
-        const moneyCols = new Set(["ValorKGingreso", "totalIngreso", "totalSalida", "costos", "utilidad", "_vIng", "_vSal"]);
-
-        if (right.has(c.key)) {
+        if (rightCols.has(c.key)) {
           td.classList.add("text-right", "tabular-nums");
           td.textContent = v === null || v === undefined ? "-" : fmtNum(v, c.key === "dias" ? 0 : 1);
           tr.appendChild(td);
           return;
         }
 
+        // money formatting
         if (moneyCols.has(c.key)) {
           td.classList.add("text-right", "tabular-nums");
           const n = Number(v);
@@ -668,7 +918,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function exportXLSX(rows, filename) {
     if (!rows.length) return alert("No hay datos para exportar.");
 
-    // Aplana y limpia columnas útiles
     const data = rows.map((r) => {
       const rr = enrichRow(r);
       return {
@@ -685,6 +934,9 @@ document.addEventListener("DOMContentLoaded", () => {
         ValorKGVenta: rr._vSal ?? "",
         TotalCompra: rr.totalIngreso ?? "",
         TotalVenta: rr.totalSalida ?? "",
+        Flete: rr.Flete ?? "",
+        Comision: rr.Comision ?? "",
+        Mermas: rr.Mermas ?? "",
         Costos: rr.costos ?? "",
         Utilidad: rr.utilidad ?? "",
         Raza: rr.Raza ?? "",
@@ -699,7 +951,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Historico");
-
     XLSX.writeFile(wb, filename);
   }
 
@@ -771,16 +1022,13 @@ document.addEventListener("DOMContentLoaded", () => {
     dateToBottom && dateToBottom.addEventListener("change", onChangeBottom);
 
     const shiftRange = (dir /* -1 | +1 */) => {
-      // usa top
       const fromVal = (dateFromTop?.value || "").trim();
       const toVal = (dateToTop?.value || "").trim();
-
-      if (!fromVal && !toVal) return; // nada que mover
+      if (!fromVal && !toVal) return;
 
       const from = fromVal ? new Date(fromVal + "T00:00:00") : null;
       const to = toVal ? new Date(toVal + "T00:00:00") : null;
 
-      // si solo hay uno, movemos 1 día
       let spanDays = 1;
       if (from && to) {
         spanDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / msDay) + 1);
@@ -850,18 +1098,71 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function bindLogout() {
-    const show = () => logoutModal && logoutModal.classList.remove("hidden");
-    const hide = () => logoutModal && logoutModal.classList.add("hidden");
+    const open = () => logoutModal && logoutModal.classList.remove("hidden");
+    const close = () => logoutModal && logoutModal.classList.add("hidden");
 
-    btnLogout && btnLogout.addEventListener("click", show);
-    logoutCancel && logoutCancel.addEventListener("click", hide);
+    btnLogout && btnLogout.addEventListener("click", open);
+    logoutCancel && logoutCancel.addEventListener("click", close);
     logoutConfirm && logoutConfirm.addEventListener("click", async () => { await doLogout(); });
 
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
 
-    // click fuera (modal overlay)
     logoutModal && logoutModal.addEventListener("click", (e) => {
-      if (e.target === logoutModal) hide();
+      if (e.target === logoutModal) close();
+    });
+  }
+
+  function bindPredModal() {
+    predMoreBtn && predMoreBtn.addEventListener("click", openPredModal);
+
+    const close = () => closePredModal();
+    predModalCloseX && predModalCloseX.addEventListener("click", close);
+    predModalAccept && predModalAccept.addEventListener("click", close);
+
+    predModal && predModal.addEventListener("click", (e) => {
+      if (e.target === predModal) close();
+    });
+
+    // ESC para cerrar
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") close();
+    });
+
+    // si cambia tamaño (rotación móvil), re-aplica clamp
+    window.addEventListener("resize", () => applyPredView());
+  }
+
+  function bindDeleteModal() {
+    deleteCancel && deleteCancel.addEventListener("click", closeDeleteModal);
+
+    deleteConfirm && deleteConfirm.addEventListener("click", async () => {
+      const numero = pendingDeleteNumero;
+      if (!numero) return closeDeleteModal();
+
+      try {
+        deleteConfirm.disabled = true;
+        await deleteByNumero(numero);
+
+        // quita de allRows local
+        allRows = allRows.filter((r) => String(r?.Numero ?? "") !== String(numero));
+
+        closeDeleteModal();
+        page = 1;
+        render();
+      } catch (e) {
+        console.error(e);
+        alert("No se pudo eliminar el registro. Revisa consola / backend.");
+      } finally {
+        deleteConfirm.disabled = false;
+      }
+    });
+
+    deleteModal && deleteModal.addEventListener("click", (e) => {
+      if (e.target === deleteModal) closeDeleteModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDeleteModal();
     });
   }
 
@@ -898,9 +1199,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function bindSearchAndSort() {
+    // Search debounce: no render letra por letra (espera a que pares de escribir)
+    const apply = (val) => {
+      searchValue = val || "";
+      page = 1;
+      render();
+    };
+
+    searchQ && searchQ.addEventListener("input", (e) => {
+      const val = e.target.value || "";
+      // toggle clear
+      if (searchClear) {
+        if (val.trim()) showEl(searchClear);
+        else hideEl(searchClear);
+      }
+
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => apply(val), 280);
+    });
+
+    searchClear && searchClear.addEventListener("click", () => {
+      if (searchQ) searchQ.value = "";
+      hideEl(searchClear);
+      apply("");
+    });
+
+    sortBy && sortBy.addEventListener("change", () => {
+      page = 1;
+      render();
+    });
+  }
+
   // ---------- carga ----------
   async function cargarDatos() {
     try {
+      // loading visible
+      showEl(loadingModal);
       btnActualizar && (btnActualizar.disabled = true);
 
       const res = await apiFetch("/api/historicoiys");
@@ -909,14 +1244,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       allRows = Array.isArray(data) ? data : [];
 
-      // limpia selección si cambió dataset
+      // limpia selección
       selectedKeys.clear();
       page = 1;
 
       render();
+
+      // ocultar loading cuando ya está renderizado
+      // (pequeño delay para que pinte bien en móviles)
+      setTimeout(() => hideEl(loadingModal), 120);
     } catch (e) {
       console.error(e);
       alert("Error cargando datos (revisa consola / backend).");
+      hideEl(loadingModal);
     } finally {
       btnActualizar && (btnActualizar.disabled = false);
     }
@@ -929,7 +1269,13 @@ document.addEventListener("DOMContentLoaded", () => {
   bindActions();
   bindFab();
   bindLogout();
+  bindPredModal();
+  bindDeleteModal();
   bindDragScroll();
+  bindSearchAndSort();
+
+  // clamp inicial pred (por si hay texto default)
+  applyPredView();
 
   cargarDatos();
 });
