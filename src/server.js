@@ -16,14 +16,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ====== CONFIG BÁSICA ======
-if (!process.env.SESSION_SECRET) {
-  console.warn(
-    "⚠️ Falta SESSION_SECRET en .env. En producción DEBES definirlo."
-  );
-}
-
-// ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
 if (process.env.NODE_ENV === "production") {
+  // ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
   app.set("trust proxy", 1);
 }
 
@@ -36,20 +30,28 @@ app.set("etag", false);
 // ====== BODY PARSER ======
 app.use(express.json());
 
-// ====== MIDDLEWARE DE SESIONES ======
+// ====== SESIONES ======
+const COOKIE_NAME = "ganados.sid";
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production", // HTTPS en prod
+  maxAge: 1000 * 60 * 60 * 12, // 12 horas
+  path: "/", // 👈 CLAVE para que clearCookie funcione siempre
+};
+
+if (!process.env.SESSION_SECRET) {
+  console.warn("⚠️ Falta SESSION_SECRET en .env (OBLIGATORIO en producción).");
+}
+
 app.use(
   session({
-    name: "ganados.sid",
+    name: COOKIE_NAME,
     secret: process.env.SESSION_SECRET || "dev-insecure-secret",
     resave: false,
     saveUninitialized: false,
-    rolling: true, // renueva expiración al usar la app
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production", // requiere HTTPS en prod
-      maxAge: 1000 * 60 * 60 * 12, // 12 horas
-    },
+    rolling: true,
+    cookie: COOKIE_OPTIONS,
   })
 );
 
@@ -69,7 +71,7 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-Frame-Options", "DENY");
-  // HSTS (solo si siempre sirves por HTTPS):
+  // HSTS (solo si SIEMPRE sirves por HTTPS):
   // res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   next();
 });
@@ -92,14 +94,12 @@ if (process.env.NODE_ENV !== "production") {
 app.use((req, res, next) => {
   const p = (req.path || "").toLowerCase();
 
-  // Deja pasar login y assets (no terminan en .html)
   const isHtml = p.endsWith(".html");
   const isLogin = p === "/login.html" || p === "/" || p === "/index.html";
 
   if (isHtml && !isLogin && !req.session?.user) {
     return res.redirect("/login.html");
   }
-
   return next();
 });
 
@@ -122,7 +122,7 @@ app.use(
         return;
       }
 
-      // JS/CSS: revalidación (evita quedar “pegado”)
+      // JS/CSS: revalidación
       if (p.endsWith(".js") || p.endsWith(".css")) {
         res.setHeader("Cache-Control", "no-cache");
         return;
@@ -153,7 +153,6 @@ app.use(
 
 // ====== RUTAS DE PÁGINAS ======
 app.get("/", (req, res) => {
-  // Si hay sesión, manda al dashboard “bonito”
   if (req.session?.user) return res.redirect("/dashboard");
   return res.sendFile(path.join(__dirname, "../public", "login.html"));
 });
@@ -174,7 +173,17 @@ app.get("/modificaciones", requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "modificaciones.html"));
 });
 
-// ====== LOGIN / LOGOUT ======
+// ✅ ruta cómoda para salir desde un link (GET)
+app.get("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    // Borra cookie SIEMPRE (aunque destroy falle)
+    res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTIONS, maxAge: undefined });
+    if (err) console.error("Error destruyendo sesión (GET /logout):", err);
+    return res.redirect("/login.html");
+  });
+});
+
+// ====== LOGIN / LOGOUT API ======
 app.post("/api/login", async (req, res) => {
   const { username, pin } = req.body || {};
 
@@ -202,7 +211,6 @@ app.post("/api/login", async (req, res) => {
         return res.status(500).json({ error: "No se pudo iniciar sesión." });
       }
 
-      // Guarda lo mínimo necesario
       req.session.user = {
         id: usuario.id ?? null,
         nombre: usuario.Nombre ?? usuario.nombre ?? username,
@@ -224,21 +232,24 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/logout", (req, res) => {
   req.session.destroy((err) => {
-    res.clearCookie("ganados.sid");
+    // ✅ Importantísimo: borrar cookie con mismas opciones (path/secure/samesite)
+    res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTIONS, maxAge: undefined });
+
     if (err) {
-      console.error("Error destruyendo sesión:", err);
+      console.error("Error destruyendo sesión (POST /api/logout):", err);
       return res.status(500).json({ ok: false, error: "LOGOUT_ERROR" });
     }
+
     return res.json({ ok: true });
   });
 });
 
-// ✅ (Opcional pero recomendado) comprobar sesión desde el frontend
+// ✅ endpoint para validar sesión desde cualquier pantalla
 app.get("/api/me", requireAuth, (req, res) => {
   res.json({ ok: true, user: req.session.user });
 });
 
-// ====== PROTEGER TODA LA API (EXCEPTO LOGIN/LOGOUT YA DEFINIDOS) ======
+// ====== PROTEGER TODA LA API (EXCEPTO LOGIN/LOGOUT/ME YA DEFINIDOS) ======
 app.use("/api", requireAuth);
 
 // ====== API FINCAS ======
