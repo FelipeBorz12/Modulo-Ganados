@@ -1,8 +1,7 @@
 // public/g-sw.js
 
 // ✅ Cambia esta versión cuando despliegues cambios importantes
-// (puedes poner fecha/hora). Solo con cambiar esto ya rompe caché viejo.
-const VERSION = "2026-01-08-01";
+const VERSION = "2026-01-09-01";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
@@ -19,9 +18,6 @@ const STATIC_ASSETS = [
   "/ingreso.js",
   "/salida.js",
   "/modificaciones.js",
-
-  // (si tienes css local agrégalo acá)
-  // "/styles.css",
 ];
 
 self.addEventListener("install", (event) => {
@@ -62,25 +58,19 @@ self.addEventListener("fetch", (event) => {
   // Solo GET
   if (req.method !== "GET") return;
 
-  // ✅ Guard: si la URL no se puede parsear, no tocamos nada
-  let url;
-  try {
-    url = new URL(req.url);
-  } catch (_) {
-    return;
-  }
+  const url = new URL(req.url);
 
-  // ✅ Guard CLAVE: no manejar esquemas raros (chrome-extension:, data:, file:, etc.)
-  // Esto evita el error: "Request scheme 'chrome-extension' is unsupported"
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return;
-  }
+  // ✅ 1) NO tocar esquemas raros (chrome-extension://, moz-extension://, etc.)
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
-  // No interceptar requests a la API
+  // ✅ 2) NO interceptar ni cachear recursos que NO sean same-origin
+  // (evita fallos con extensiones / cdn / etc. y deja que el navegador maneje eso)
+  if (url.origin !== self.location.origin) return;
+
+  // ✅ 3) No interceptar requests a la API
   if (url.pathname.startsWith("/api/")) return;
 
   // 1) Navegaciones (HTML): NETWORK FIRST
-  // (para que al volver al dashboard no te sirva HTML/JS viejos)
   if (req.mode === "navigate") {
     event.respondWith(networkFirst(req, STATIC_CACHE));
     return;
@@ -105,41 +95,32 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
 });
 
-// ----------------- helpers -----------------
-function isCacheableRequest(req) {
-  try {
-    const u = new URL(req.url);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch (_) {
-    return false;
-  }
+// ----------------- estrategias -----------------
+
+function isCacheableResponse(res) {
+  // ✅ NO cachear 500/404/etc.
+  return res && res.ok;
 }
 
 async function safePut(cache, req, res) {
+  // ✅ Evita que un put tumbe el SW si algo raro pasa
   try {
-    if (!cache || !req || !res) return;
-
-    // No intentes cachear esquemas no soportados
-    if (!isCacheableRequest(req)) return;
-
-    // No cachear respuestas malas (opcional pero recomendado)
-    // (si quieres cachear 404, quita esta condición)
-    if (!res.ok && res.type !== "opaque") return;
-
     await cache.put(req, res);
-  } catch (e) {
-    // Nunca romper por cache
-    // console.warn("[SW] safePut:", e);
+  } catch (_) {
+    // ignorar errores de cache.put
   }
 }
 
-// ----------------- estrategias -----------------
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const fresh = await fetch(req);
-    // guarda copia (seguro)
-    await safePut(cache, req, fresh.clone());
+
+    // ✅ cachear solo respuestas OK
+    if (isCacheableResponse(fresh)) {
+      await safePut(cache, req, fresh.clone());
+    }
+
     return fresh;
   } catch (e) {
     const cached = await cache.match(req);
@@ -153,7 +134,12 @@ async function cacheFirst(req, cacheName) {
   if (cached) return cached;
 
   const fresh = await fetch(req);
-  await safePut(cache, req, fresh.clone());
+
+  // ✅ cachear solo respuestas OK
+  if (isCacheableResponse(fresh)) {
+    await safePut(cache, req, fresh.clone());
+  }
+
   return fresh;
 }
 
@@ -163,7 +149,9 @@ async function staleWhileRevalidate(req, cacheName) {
 
   const fetchPromise = fetch(req)
     .then(async (fresh) => {
-      await safePut(cache, req, fresh.clone());
+      if (isCacheableResponse(fresh)) {
+        await safePut(cache, req, fresh.clone());
+      }
       return fresh;
     })
     .catch(() => cached);
