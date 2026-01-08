@@ -4,9 +4,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // DASHBOARD (HTML NUEVO + UX COMPLETA)
   // - Loading modal inicial
   // - Predicción: clamp móvil + modal “ver más”
-  // - Búsqueda fluida (debounce)
+  // - Búsqueda global fluida (debounce)
+  // - ✅ Filtros por columna (debounce, sin refrescar letra por letra)
   // - Orden select
-  // - Tabla: copiar número + borrar a la derecha + selección + columnas reorganizadas
+  // - Tabla: copiar número + borrar a la derecha + selección
+  // - Export: Todo (siempre) + Inteligente (filtros + selección)
   // ==============================
 
   // ---------- helpers DOM ----------
@@ -123,7 +125,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Selección (por id si existe; si no, por Numero)
   const selectedKeys = new Set();
 
-  // Search debounce
+  // ==============================
+  // ✅ Filtros por columna (por TAB)
+  // ==============================
+  const columnFilters = { ingreso: {}, salida: {} }; // { key: "texto" }
+  const colFilterTimers = new Map(); // idInput -> timer
+  let pendingColFocus = null; // { id, pos }
+
+  // Search debounce (global)
   let searchTimer = null;
   let searchValue = "";
 
@@ -138,7 +147,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fmtMoney = (n) => {
     const v = Number(n) || 0;
-    return v.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+    return v.toLocaleString("es-CO", {
+      style: "currency",
+      currency: "COP",
+      maximumFractionDigits: 0,
+    });
   };
 
   const fmtNum = (n, digits = 1) => {
@@ -153,14 +166,20 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fmtDate = (d) =>
-    new Intl.DateTimeFormat("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    new Intl.DateTimeFormat("es-CO", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(d);
 
   const diffDays = (startISO, endISO) => {
     const a = parseISODate(startISO);
     const b = parseISODate(endISO);
     if (!a || !b) return null;
-    const aa = new Date(a); aa.setHours(0, 0, 0, 0);
-    const bb = new Date(b); bb.setHours(0, 0, 0, 0);
+    const aa = new Date(a);
+    aa.setHours(0, 0, 0, 0);
+    const bb = new Date(b);
+    bb.setHours(0, 0, 0, 0);
     return Math.round((bb.getTime() - aa.getTime()) / msDay);
   };
 
@@ -173,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const rowKey = (r) => {
-    if (r && (r.id !== undefined && r.id !== null)) return `id:${r.id}`;
+    if (r && r.id !== undefined && r.id !== null) return `id:${r.id}`;
     return `num:${r?.Numero ?? ""}`;
   };
 
@@ -199,13 +218,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function doLogout() {
     try {
-      await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
     } catch (_) {}
     window.location.href = "/";
   }
 
   async function deleteByNumero(numero) {
-    const res = await apiFetch(`/api/historicoiys/${encodeURIComponent(numero)}`, { method: "DELETE" });
+    const res = await apiFetch(
+      `/api/historicoiys/${encodeURIComponent(numero)}`,
+      { method: "DELETE" }
+    );
     if (!res.ok && res.status !== 204) {
       const txt = await res.text().catch(() => "");
       throw new Error(txt || "No se pudo eliminar");
@@ -241,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // búsqueda (fluida)
+    // búsqueda global (fluida)
     const q = (searchValue || "").trim().toLowerCase();
     if (q) {
       out = out.filter((r) => {
@@ -283,24 +308,105 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const copy = [...rows];
 
-    // Nota: utilidad/días solo sentido en salidas; si no hay, cae a 0.
     copy.sort((a, b) => {
-      if (key === "fecha_ing_desc") return getTime(b.FechaIngreso) - getTime(a.FechaIngreso);
-      if (key === "fecha_ing_asc") return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
+      if (key === "fecha_ing_desc")
+        return getTime(b.FechaIngreso) - getTime(a.FechaIngreso);
+      if (key === "fecha_ing_asc")
+        return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
 
-      if (key === "peso_desc") return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
-      if (key === "peso_asc") return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
+      if (key === "peso_desc")
+        return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
+      if (key === "peso_asc")
+        return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
 
-      if (key === "utilidad_desc") return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
-      if (key === "utilidad_asc") return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
+      if (key === "utilidad_desc")
+        return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
+      if (key === "utilidad_asc")
+        return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
 
-      if (key === "dias_desc") return (Number(b.dias) || 0) - (Number(a.dias) || 0);
-      if (key === "dias_asc") return (Number(a.dias) || 0) - (Number(b.dias) || 0);
+      if (key === "dias_desc")
+        return (Number(b.dias) || 0) - (Number(a.dias) || 0);
+      if (key === "dias_asc")
+        return (Number(a.dias) || 0) - (Number(b.dias) || 0);
 
       return 0;
     });
 
     return copy;
+  }
+
+  // ==============================
+  // ✅ Filtros por columna (debounce)
+  // ==============================
+  function getCellValueForColumnFilter(r, key) {
+    if (!r) return "";
+
+    if (key === "Finca") {
+      return safeText(r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "");
+    }
+
+    if (key === "FechaIngreso" || key === "FechaSalida") {
+      const iso = safeText(r[key]);
+      const d = parseISODate(r[key]);
+      return d ? `${iso} ${fmtDate(d)}` : iso;
+    }
+
+    const numericKeys = new Set([
+      "Peso",
+      "_pesoIng",
+      "_pesoSal",
+      "gananciaKg",
+      "dias",
+      "ValorKGingreso",
+      "_vIng",
+      "_vSal",
+      "totalIngreso",
+      "totalSalida",
+      "Flete",
+      "Comision",
+      "Mermas",
+      "costos",
+      "utilidad",
+    ]);
+
+    if (numericKeys.has(key)) {
+      const n = Number(r[key]);
+      return Number.isFinite(n) ? String(n) : "";
+    }
+
+    return safeText(r[key]);
+  }
+
+  function applyColumnFilters(rows, mode) {
+    const filters = columnFilters[mode] || {};
+    const activeKeys = Object.keys(filters).filter(
+      (k) => (filters[k] ?? "").toString().trim() !== ""
+    );
+    if (!activeKeys.length) return rows;
+
+    const normalized = {};
+    activeKeys.forEach((k) => {
+      normalized[k] = filters[k].toString().trim().toLowerCase();
+    });
+
+    return rows.filter((r) => {
+      for (const k of activeKeys) {
+        const q = normalized[k];
+        const v = getCellValueForColumnFilter(r, k).toLowerCase();
+        if (!v.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function restoreColumnFilterFocus() {
+    if (!pendingColFocus) return;
+    const el = document.getElementById(pendingColFocus.id);
+    if (!el) return;
+    el.focus();
+    try {
+      el.setSelectionRange(pendingColFocus.pos, pendingColFocus.pos);
+    } catch (_) {}
   }
 
   // ---------- cálculos negocio ----------
@@ -322,7 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const utilidad = totalSalida - (totalIngreso + costos);
 
     const dias = hasSalida(r) ? diffDays(r.FechaIngreso, r.FechaSalida) : null;
-    const gananciaKg = hasSalida(r) ? (pesoSal - pesoIng) : null;
+    const gananciaKg = hasSalida(r) ? pesoSal - pesoIng : null;
 
     return {
       ...r,
@@ -350,13 +456,10 @@ document.addEventListener("DOMContentLoaded", () => {
     elStatPred.innerHTML = predFullHTML || "-";
 
     if (isMobile()) {
-      // clamp 3 líneas + mostrar botón
       elStatPred.classList.add("clamp-3");
       showEl(predMoreBtn);
-      // el “fade” es un div vacío solo para aplicar el pseudo overlay (ya está en CSS)
       showEl(predFade);
     } else {
-      // desktop: sin clamp y sin botón
       elStatPred.classList.remove("clamp-3");
       hideEl(predMoreBtn);
       hideEl(predFade);
@@ -380,7 +483,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     [btnIngreso, btnSalida].forEach((b) => {
       if (!b) return;
-      b.classList.remove("bg-white", "dark:bg-[#1a1926]", "text-primary", "shadow-sm", "text-gray-600", "dark:text-gray-200/80");
+      b.classList.remove(
+        "bg-white",
+        "dark:bg-[#1a1926]",
+        "text-primary",
+        "shadow-sm",
+        "text-gray-600",
+        "dark:text-gray-200/80"
+      );
     });
 
     if (btnIngreso) {
@@ -397,17 +507,16 @@ document.addEventListener("DOMContentLoaded", () => {
   function render() {
     setActiveTabUI();
 
+    // Base para totales/estadísticas (fecha + búsqueda global)
     const base = applyFiltersBase(allRows).map(enrichRow);
 
-    // Totales globales (sobre el filtro)
     renderTotales(base);
-
-    // Estadísticas (sobre salidas dentro del filtro)
     renderStats(base);
 
-    // Vista tabla según tab
+    // ✅ Vista tabla/export: TAB + filtros por columna + sort
     const view = applyViewMode(base);
-    const sortedView = applySort(view);
+    const colFiltered = applyColumnFilters(view, viewMode);
+    const sortedView = applySort(colFiltered);
 
     // Paginación
     const size = pageSize === Infinity ? sortedView.length : pageSize;
@@ -419,8 +528,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     renderPager(sortedView.length, pageRows.length, startIdx);
     renderTable(pageRows, viewMode, sortedView);
-
     updateSelectionInfo(sortedView, pageRows);
+
+    // ✅ devuelve el foco al input de filtro de columna
+    restoreColumnFilterFocus();
   }
 
   function renderTotales(baseRows) {
@@ -428,7 +539,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const totalFiltrado = baseRows.length;
     const totalSalidas = baseRows.filter(hasSalida).length;
 
-    // dinero y utilidad solo en salidas
     const salidas = baseRows.filter(hasSalida);
     const sumIng = salidas.reduce((a, r) => a + (Number(r.totalIngreso) || 0), 0);
     const sumSal = salidas.reduce((a, r) => a + (Number(r.totalSalida) || 0), 0);
@@ -472,8 +582,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const ing = prom(ingresos);
 
     const margenPct = ing && ing > 0 && u !== null ? (u / ing) * 100 : null;
-    const uDia = d && d > 0 && u !== null ? (u / d) : null;
-    const kgDia = d && d > 0 && g !== null ? (g / d) : null;
+    const uDia = d && d > 0 && u !== null ? u / d : null;
+    const kgDia = d && d > 0 && g !== null ? g / d : null;
 
     if (elStatPesoIng) elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
     if (elStatPesoSal) elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
@@ -511,7 +621,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const start = Math.floor(w / step) * step;
         const key = `${start}-${start + step}`;
 
-        const b = buckets.get(key) || { key, start, end: start + step, n: 0, sumU: 0, sumD: 0, sumIng: 0 };
+        const b = buckets.get(key) || {
+          key,
+          start,
+          end: start + step,
+          n: 0,
+          sumU: 0,
+          sumD: 0,
+          sumIng: 0,
+        };
         b.n += 1;
         b.sumU += uu;
         b.sumD += dd;
@@ -549,11 +667,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const parts = [];
 
     parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
-    parts.push(`• Registros filtrados: <strong>${nw(baseRows.length.toLocaleString("es-CO"))}</strong>`);
-    parts.push(`• Salidas en el filtro: <strong>${nw(salidas.length.toLocaleString("es-CO"))}</strong>`);
+    parts.push(
+      `• Registros filtrados: <strong>${nw(baseRows.length.toLocaleString("es-CO"))}</strong>`
+    );
+    parts.push(
+      `• Salidas en el filtro: <strong>${nw(salidas.length.toLocaleString("es-CO"))}</strong>`
+    );
 
     parts.push(
-      `• Sexo: Machos <strong>${nw(sexCounts.MACHO.toLocaleString("es-CO"))}</strong>, Hembras <strong>${nw(sexCounts.HEMBRA.toLocaleString("es-CO"))}</strong>` +
+      `• Sexo: Machos <strong>${nw(sexCounts.MACHO.toLocaleString("es-CO"))}</strong>, Hembras <strong>${nw(
+        sexCounts.HEMBRA.toLocaleString("es-CO")
+      )}</strong>` +
         (sexCounts["N/A"] ? `, Sin dato ${nw(sexCounts["N/A"].toLocaleString("es-CO"))}` : "") +
         (sexCounts.OTRO ? `, Otros ${nw(sexCounts.OTRO.toLocaleString("es-CO"))}` : "")
     );
@@ -582,20 +706,25 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    // Sugerencia global
     if (sugGlobal?.bestPorDia) {
       const b = sugGlobal.bestPorDia;
       const c = sugGlobal.bestTotal;
 
       parts.push(`<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`);
       parts.push(
-        `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${nw(`${b.start}-${b.end} kg`)}</strong> fue tu mejor rango (n=${nw(String(b.n))}). ` +
-          `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(b.avgD.toFixed(1) + " días")}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`
+        `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${nw(
+          `${b.start}-${b.end} kg`
+        )}</strong> fue tu mejor rango (n=${nw(String(b.n))}). ` +
+          `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(
+            b.avgD.toFixed(1) + " días"
+          )}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`
       );
 
       if (c && c.key !== b.key) {
         parts.push(
-          `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${nw(`${c.start}-${c.end} kg`)}</strong> fue el mejor (n=${nw(String(c.n))}). ` +
+          `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${nw(
+            `${c.start}-${c.end} kg`
+          )}</strong> fue el mejor (n=${nw(String(c.n))}). ` +
             `Prom: <strong>${nw(fmtMoney(c.avgU))}</strong> por animal (margen ~${nw(c.avgMarg.toFixed(2) + "%")}).`
         );
       }
@@ -605,15 +734,18 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    // por sexo
     const sexoSugLines = [];
     if (sugM?.bestPorDia) {
       const b = sugM.bestPorDia;
-      sexoSugLines.push(`• <strong>Machos</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`);
+      sexoSugLines.push(
+        `• <strong>Machos</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`
+      );
     }
     if (sugH?.bestPorDia) {
       const b = sugH.bestPorDia;
-      sexoSugLines.push(`• <strong>Hembras</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`);
+      sexoSugLines.push(
+        `• <strong>Hembras</strong>: mejor por día <strong>${nw(`${b.start}-${b.end} kg`)}</strong> (n=${nw(String(b.n))}).`
+      );
     }
     if (sexoSugLines.length) {
       parts.push(`<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join("<br>")}`);
@@ -626,7 +758,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderPager(total, pageCount, startIdx) {
     const start = total ? startIdx + 1 : 0;
     const end = total ? startIdx + pageCount : 0;
-    const txt = `Mostrando ${start.toLocaleString("es-CO")}–${end.toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`;
+    const txt = `Mostrando ${start.toLocaleString("es-CO")}–${end.toLocaleString("es-CO")} de ${total.toLocaleString(
+      "es-CO"
+    )}`;
 
     if (pageInfoTop) pageInfoTop.textContent = txt;
     if (pageInfoBottom) pageInfoBottom.textContent = txt;
@@ -644,10 +778,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateSelectionInfo(viewRowsAll, pageRows) {
     const selectedInView = viewRowsAll.filter((r) => selectedKeys.has(rowKey(r))).length;
-    const msg =
-      selectedKeys.size
-        ? `Seleccionados: ${selectedKeys.size.toLocaleString("es-CO")} (en esta vista: ${selectedInView.toLocaleString("es-CO")}).`
-        : "Totales basados en todos los registros filtrados.";
+    const msg = selectedKeys.size
+      ? `Seleccionados: ${selectedKeys.size.toLocaleString("es-CO")} (en esta vista: ${selectedInView.toLocaleString(
+          "es-CO"
+        )}).`
+      : "Totales basados en todos los registros filtrados.";
 
     if (selectionInfo) selectionInfo.textContent = msg;
     if (selectionInfoMobile) selectionInfoMobile.textContent = msg;
@@ -658,7 +793,6 @@ document.addEventListener("DOMContentLoaded", () => {
       await navigator.clipboard.writeText(text);
       return true;
     } catch (_) {
-      // fallback
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.style.position = "fixed";
@@ -687,11 +821,11 @@ document.addEventListener("DOMContentLoaded", () => {
     hideEl(deleteModal);
   }
 
-  function renderTable(rows, mode, allViewSorted) {
+  function renderTable(rows, mode) {
     if (!tablaHead || !tablaBody) return;
 
     // ✅ columnas reorganizadas:
-    // - Ingreso: precios y totales al final
+    // - Ingreso: NO destino; precios y totales al final
     // - Salida: todo (incluye costos/utilidad), y acciones al extremo derecho
     const colsIngreso = [
       { key: "_select", label: "" },
@@ -705,7 +839,6 @@ document.addEventListener("DOMContentLoaded", () => {
       { key: "Edad", label: "Edad" },
       { key: "Marcallegada", label: "Marca" },
       { key: "Proveedor", label: "Proveedor" },
-      { key: "Destino", label: "Destino" },
       // ✅ precios al final
       { key: "ValorKGingreso", label: "$/kg compra" },
       { key: "totalIngreso", label: "Total compra" },
@@ -745,12 +878,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Header
     tablaHead.innerHTML = "";
+
+    // --- fila 1: títulos ---
     const theadRow = document.createElement("tr");
     theadRow.className = "bg-gray-50 dark:bg-[#232235]";
 
     // Select-all header checkbox (solo página)
     const thSelect = document.createElement("th");
-    thSelect.className = "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
+    thSelect.className =
+      "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
+
     const selectAll = document.createElement("input");
     selectAll.type = "checkbox";
     selectAll.className = "rounded border-gray-300 dark:border-gray-600";
@@ -769,7 +906,6 @@ document.addEventListener("DOMContentLoaded", () => {
     thSelect.appendChild(selectAll);
     theadRow.appendChild(thSelect);
 
-    // resto headers
     cols.slice(1).forEach((c) => {
       const th = document.createElement("th");
       th.className =
@@ -779,6 +915,69 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     tablaHead.appendChild(theadRow);
+
+    // --- fila 2: filtros por columna (debounce) ---
+    const filterRow = document.createElement("tr");
+    filterRow.className = "bg-gray-50 dark:bg-[#232235]";
+
+    const thEmpty = document.createElement("th");
+    thEmpty.className = "th-filter";
+    filterRow.appendChild(thEmpty);
+
+    cols.slice(1).forEach((c) => {
+      const th = document.createElement("th");
+      th.className = "th-filter";
+
+      if (c.key === "_actions") {
+        th.innerHTML = "";
+        filterRow.appendChild(th);
+        return;
+      }
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.id = `colf-${mode}-${c.key}`;
+      input.value = (columnFilters[mode]?.[c.key] ?? "").toString();
+      input.placeholder = "Buscar…";
+
+      input.className =
+        "h-9 w-full rounded-lg border-0 bg-gray-100/80 dark:bg-white/10 px-3 text-xs text-gray-900 dark:text-white " +
+        "ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary";
+
+      // ✅ evita que el drag-scroll se “robe” el click
+      input.addEventListener("mousedown", (e) => e.stopPropagation());
+      input.addEventListener("click", (e) => e.stopPropagation());
+
+      input.addEventListener("input", (e) => {
+        const val = e.target.value || "";
+        const id = e.target.id;
+        const pos = e.target.selectionStart ?? val.length;
+
+        pendingColFocus = { id, pos };
+
+        if (colFilterTimers.has(id)) clearTimeout(colFilterTimers.get(id));
+
+        colFilterTimers.set(
+          id,
+          setTimeout(() => {
+            const v = val.trim();
+            if (!columnFilters[mode]) columnFilters[mode] = {};
+            if (v) columnFilters[mode][c.key] = v;
+            else delete columnFilters[mode][c.key];
+
+            page = 1;
+            render();
+          }, 320)
+        );
+      });
+
+      th.appendChild(input);
+      filterRow.appendChild(th);
+    });
+
+    tablaHead.appendChild(filterRow);
 
     // Body
     tablaBody.innerHTML = "";
@@ -844,7 +1043,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // Número: incluye botón copiar
         if (c.key === "Numero") {
           const numero = safeText(r.Numero);
-          td.className = "px-3 py-2 whitespace-nowrap";
           td.innerHTML = `
             <div class="flex items-center gap-2">
               <span class="font-extrabold">${numero}</span>
@@ -870,7 +1068,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let v = r[c.key];
 
-        // Finca (varios nombres)
+        // Finca normalizada
         if (c.key === "Finca") v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
 
         // fechas
@@ -956,8 +1154,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- eventos ----------
   function bindTabs() {
-    if (btnIngreso) btnIngreso.addEventListener("click", () => { viewMode = "ingreso"; page = 1; render(); });
-    if (btnSalida) btnSalida.addEventListener("click", () => { viewMode = "salida"; page = 1; render(); });
+    if (btnIngreso)
+      btnIngreso.addEventListener("click", () => {
+        viewMode = "ingreso";
+        page = 1;
+        render();
+      });
+
+    if (btnSalida)
+      btnSalida.addEventListener("click", () => {
+        viewMode = "salida";
+        page = 1;
+        render();
+      });
   }
 
   function bindPager() {
@@ -968,8 +1177,14 @@ document.addEventListener("DOMContentLoaded", () => {
       syncPageSizeButtonsUI();
     };
 
-    const prev = () => { page = Math.max(1, page - 1); render(); };
-    const next = () => { page = page + 1; render(); };
+    const prev = () => {
+      page = Math.max(1, page - 1);
+      render();
+    };
+    const next = () => {
+      page = page + 1;
+      render();
+    };
 
     pagePrevTop && pagePrevTop.addEventListener("click", prev);
     pagePrevBottom && pagePrevBottom.addEventListener("click", prev);
@@ -991,8 +1206,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function syncPageSizeButtonsUI() {
     const allBtns = [
-      [pageSize100Top, 100], [pageSize200Top, 200], [pageSize300Top, 300], [pageSizeAllTop, Infinity],
-      [pageSize100Bottom, 100], [pageSize200Bottom, 200], [pageSize300Bottom, 300], [pageSizeAllBottom, Infinity],
+      [pageSize100Top, 100],
+      [pageSize200Top, 200],
+      [pageSize300Top, 300],
+      [pageSizeAllTop, Infinity],
+      [pageSize100Bottom, 100],
+      [pageSize200Bottom, 200],
+      [pageSize300Bottom, 300],
+      [pageSizeAllBottom, Infinity],
     ];
 
     allBtns.forEach(([btn, val]) => {
@@ -1012,8 +1233,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (dateToTop) dateToTop.value = dateToBottom?.value || "";
     };
 
-    const onChangeTop = () => { syncFromTopToBottom(); page = 1; render(); };
-    const onChangeBottom = () => { syncFromBottomToTop(); page = 1; render(); };
+    const onChangeTop = () => {
+      syncFromTopToBottom();
+      page = 1;
+      render();
+    };
+    const onChangeBottom = () => {
+      syncFromBottomToTop();
+      page = 1;
+      render();
+    };
 
     dateFromTop && dateFromTop.addEventListener("change", onChangeTop);
     dateToTop && dateToTop.addEventListener("change", onChangeTop);
@@ -1081,20 +1310,50 @@ document.addEventListener("DOMContentLoaded", () => {
   function bindActions() {
     btnActualizar && btnActualizar.addEventListener("click", cargarDatos);
 
-    btnExportarTodo && btnExportarTodo.addEventListener("click", () => {
-      exportXLSX(allRows, `historico_todo_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    });
+    // ✅ 1) Exportar todo = SIEMPRE todo (ignora filtros, tab, selección)
+    btnExportarTodo &&
+      btnExportarTodo.addEventListener("click", () => {
+        exportXLSX(allRows, `historico_TODO_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      });
 
-    btnExportarVista && btnExportarVista.addEventListener("click", () => {
-      const base = applyFiltersBase(allRows);
-      const view = applyViewMode(base);
-      exportXLSX(view, `historico_vista_${viewMode}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    });
+    // ✅ 2) Exportar inteligente:
+    // - si hay selección: exporta selección ∩ (filtros globales + filtros por columna + tab)
+    // - si no hay selección: exporta (filtros globales + filtros por columna + tab)
+    btnExportarVista &&
+      btnExportarVista.addEventListener("click", () => {
+        const base = applyFiltersBase(allRows).map(enrichRow);
+
+        const view = applyViewMode(base);
+        const colFiltered = applyColumnFilters(view, viewMode);
+        const rowsForExport = applySort(colFiltered);
+
+        let rowsToExport = rowsForExport;
+        let suffix = `FILTRO_${viewMode}`;
+
+        if (selectedKeys.size > 0) {
+          const selectedInView = rowsForExport.filter((r) => selectedKeys.has(rowKey(r)));
+          if (!selectedInView.length) {
+            return alert(
+              "Tienes registros seleccionados, pero ninguno está dentro de la vista/filtros actuales.\n\n" +
+                "Quita filtros o selecciona dentro de esta vista para exportar."
+            );
+          }
+          rowsToExport = selectedInView;
+          suffix = `SELECCION_${viewMode}_${selectedInView.length}`;
+        }
+
+        if (!rowsToExport.length) {
+          return alert("No hay datos para exportar con la vista/filtros actuales.");
+        }
+
+        exportXLSX(rowsToExport, `historico_${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      });
   }
 
   function bindFab() {
     fabTop && fabTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
-    fabBottom && fabBottom.addEventListener("click", () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+    fabBottom &&
+      fabBottom.addEventListener("click", () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
   }
 
   function bindLogout() {
@@ -1103,13 +1362,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnLogout && btnLogout.addEventListener("click", open);
     logoutCancel && logoutCancel.addEventListener("click", close);
-    logoutConfirm && logoutConfirm.addEventListener("click", async () => { await doLogout(); });
+    logoutConfirm && logoutConfirm.addEventListener("click", async () => await doLogout());
 
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
-
-    logoutModal && logoutModal.addEventListener("click", (e) => {
-      if (e.target === logoutModal) close();
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") close();
     });
+
+    logoutModal &&
+      logoutModal.addEventListener("click", (e) => {
+        if (e.target === logoutModal) close();
+      });
   }
 
   function bindPredModal() {
@@ -1119,47 +1381,47 @@ document.addEventListener("DOMContentLoaded", () => {
     predModalCloseX && predModalCloseX.addEventListener("click", close);
     predModalAccept && predModalAccept.addEventListener("click", close);
 
-    predModal && predModal.addEventListener("click", (e) => {
-      if (e.target === predModal) close();
-    });
+    predModal &&
+      predModal.addEventListener("click", (e) => {
+        if (e.target === predModal) close();
+      });
 
-    // ESC para cerrar
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") close();
     });
 
-    // si cambia tamaño (rotación móvil), re-aplica clamp
     window.addEventListener("resize", () => applyPredView());
   }
 
   function bindDeleteModal() {
     deleteCancel && deleteCancel.addEventListener("click", closeDeleteModal);
 
-    deleteConfirm && deleteConfirm.addEventListener("click", async () => {
-      const numero = pendingDeleteNumero;
-      if (!numero) return closeDeleteModal();
+    deleteConfirm &&
+      deleteConfirm.addEventListener("click", async () => {
+        const numero = pendingDeleteNumero;
+        if (!numero) return closeDeleteModal();
 
-      try {
-        deleteConfirm.disabled = true;
-        await deleteByNumero(numero);
+        try {
+          deleteConfirm.disabled = true;
+          await deleteByNumero(numero);
 
-        // quita de allRows local
-        allRows = allRows.filter((r) => String(r?.Numero ?? "") !== String(numero));
+          allRows = allRows.filter((r) => String(r?.Numero ?? "") !== String(numero));
 
-        closeDeleteModal();
-        page = 1;
-        render();
-      } catch (e) {
-        console.error(e);
-        alert("No se pudo eliminar el registro. Revisa consola / backend.");
-      } finally {
-        deleteConfirm.disabled = false;
-      }
-    });
+          closeDeleteModal();
+          page = 1;
+          render();
+        } catch (e) {
+          console.error(e);
+          alert("No se pudo eliminar el registro. Revisa consola / backend.");
+        } finally {
+          deleteConfirm.disabled = false;
+        }
+      });
 
-    deleteModal && deleteModal.addEventListener("click", (e) => {
-      if (e.target === deleteModal) closeDeleteModal();
-    });
+    deleteModal &&
+      deleteModal.addEventListener("click", (e) => {
+        if (e.target === deleteModal) closeDeleteModal();
+      });
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeDeleteModal();
@@ -1174,6 +1436,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let scrollLeft = 0;
 
     tablaWrapper.addEventListener("mousedown", (e) => {
+      // ✅ si el click fue sobre un control, NO iniciar drag
+      if (e.target.closest("button, input, select, textarea, label, a")) return;
+
       isDown = true;
       tablaWrapper.classList.add("dragging");
       startX = e.pageX - tablaWrapper.offsetLeft;
@@ -1200,41 +1465,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function bindSearchAndSort() {
-    // Search debounce: no render letra por letra (espera a que pares de escribir)
     const apply = (val) => {
       searchValue = val || "";
       page = 1;
       render();
     };
 
-    searchQ && searchQ.addEventListener("input", (e) => {
-      const val = e.target.value || "";
-      // toggle clear
-      if (searchClear) {
-        if (val.trim()) showEl(searchClear);
-        else hideEl(searchClear);
-      }
+    searchQ &&
+      searchQ.addEventListener("input", (e) => {
+        const val = e.target.value || "";
+        if (searchClear) {
+          if (val.trim()) showEl(searchClear);
+          else hideEl(searchClear);
+        }
 
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => apply(val), 280);
-    });
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => apply(val), 280);
+      });
 
-    searchClear && searchClear.addEventListener("click", () => {
-      if (searchQ) searchQ.value = "";
-      hideEl(searchClear);
-      apply("");
-    });
+    searchClear &&
+      searchClear.addEventListener("click", () => {
+        if (searchQ) searchQ.value = "";
+        hideEl(searchClear);
+        apply("");
+      });
 
-    sortBy && sortBy.addEventListener("change", () => {
-      page = 1;
-      render();
-    });
+    sortBy &&
+      sortBy.addEventListener("change", () => {
+        page = 1;
+        render();
+      });
   }
 
   // ---------- carga ----------
   async function cargarDatos() {
     try {
-      // loading visible
       showEl(loadingModal);
       btnActualizar && (btnActualizar.disabled = true);
 
@@ -1244,14 +1509,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       allRows = Array.isArray(data) ? data : [];
 
-      // limpia selección
       selectedKeys.clear();
       page = 1;
 
       render();
 
-      // ocultar loading cuando ya está renderizado
-      // (pequeño delay para que pinte bien en móviles)
       setTimeout(() => hideEl(loadingModal), 120);
     } catch (e) {
       console.error(e);
@@ -1274,8 +1536,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindDragScroll();
   bindSearchAndSort();
 
-  // clamp inicial pred (por si hay texto default)
   applyPredView();
-
   cargarDatos();
 });
