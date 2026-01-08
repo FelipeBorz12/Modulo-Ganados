@@ -2,7 +2,7 @@
 
 // ✅ Cambia esta versión cuando despliegues cambios importantes
 // (puedes poner fecha/hora). Solo con cambiar esto ya rompe caché viejo.
-const VERSION = "2026-01-07-01";
+const VERSION = "2026-01-08-01";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
@@ -62,7 +62,19 @@ self.addEventListener("fetch", (event) => {
   // Solo GET
   if (req.method !== "GET") return;
 
-  const url = new URL(req.url);
+  // ✅ Guard: si la URL no se puede parsear, no tocamos nada
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (_) {
+    return;
+  }
+
+  // ✅ Guard CLAVE: no manejar esquemas raros (chrome-extension:, data:, file:, etc.)
+  // Esto evita el error: "Request scheme 'chrome-extension' is unsupported"
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return;
+  }
 
   // No interceptar requests a la API
   if (url.pathname.startsWith("/api/")) return;
@@ -93,13 +105,41 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(staleWhileRevalidate(req, RUNTIME_CACHE));
 });
 
+// ----------------- helpers -----------------
+function isCacheableRequest(req) {
+  try {
+    const u = new URL(req.url);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
+}
+
+async function safePut(cache, req, res) {
+  try {
+    if (!cache || !req || !res) return;
+
+    // No intentes cachear esquemas no soportados
+    if (!isCacheableRequest(req)) return;
+
+    // No cachear respuestas malas (opcional pero recomendado)
+    // (si quieres cachear 404, quita esta condición)
+    if (!res.ok && res.type !== "opaque") return;
+
+    await cache.put(req, res);
+  } catch (e) {
+    // Nunca romper por cache
+    // console.warn("[SW] safePut:", e);
+  }
+}
+
 // ----------------- estrategias -----------------
 async function networkFirst(req, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const fresh = await fetch(req);
-    // guarda copia
-    cache.put(req, fresh.clone());
+    // guarda copia (seguro)
+    await safePut(cache, req, fresh.clone());
     return fresh;
   } catch (e) {
     const cached = await cache.match(req);
@@ -113,7 +153,7 @@ async function cacheFirst(req, cacheName) {
   if (cached) return cached;
 
   const fresh = await fetch(req);
-  cache.put(req, fresh.clone());
+  await safePut(cache, req, fresh.clone());
   return fresh;
 }
 
@@ -122,8 +162,8 @@ async function staleWhileRevalidate(req, cacheName) {
   const cached = await cache.match(req);
 
   const fetchPromise = fetch(req)
-    .then((fresh) => {
-      cache.put(req, fresh.clone());
+    .then(async (fresh) => {
+      await safePut(cache, req, fresh.clone());
       return fresh;
     })
     .catch(() => cached);

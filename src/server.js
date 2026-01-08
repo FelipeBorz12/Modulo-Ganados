@@ -3,7 +3,6 @@ import express from "express";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import session from "express-session";
 import { supabase, validarUsuario } from "./supabase.js";
 
 dotenv.config();
@@ -15,11 +14,36 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ====== CONFIG BÁSICA ======
+import session from "express-session";
+
+app.use(express.json());
+
+// Si estás detrás de proxy (Easypanel, Nginx, Cloudflare, etc.)
+// esto es importante para que cookie secure funcione bien:
 if (process.env.NODE_ENV === "production") {
-  // ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
   app.set("trust proxy", 1);
 }
+
+app.use(
+  session({
+    name: "ganados.sid",                  // nombre de cookie (personalizable)
+    secret: process.env.SESSION_SECRET,   // OBLIGATORIO
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,                        // renueva expiración al usar la app
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production", // HTTPS en prod
+      maxAge: 1000 * 60 * 60 * 12,        // 12 horas (ajusta a gusto)
+    },
+  })
+);
+
+
+
+// ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
+app.set("trust proxy", 1);
 
 // ✅ Quita header que revela tecnología
 app.disable("x-powered-by");
@@ -27,52 +51,18 @@ app.disable("x-powered-by");
 // ====== CONFIG ANTI-CACHE / ETAG ======
 app.set("etag", false);
 
-// ====== BODY PARSER ======
-app.use(express.json());
-
-// ====== SESIONES ======
-const COOKIE_NAME = "ganados.sid";
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "lax",
-  secure: process.env.NODE_ENV === "production", // HTTPS en prod
-  maxAge: 1000 * 60 * 60 * 12, // 12 horas
-  path: "/", // 👈 CLAVE para que clearCookie funcione siempre
-};
-
-if (!process.env.SESSION_SECRET) {
-  console.warn("⚠️ Falta SESSION_SECRET en .env (OBLIGATORIO en producción).");
-}
-
-app.use(
-  session({
-    name: COOKIE_NAME,
-    secret: process.env.SESSION_SECRET || "dev-insecure-secret",
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: COOKIE_OPTIONS,
-  })
-);
-
-// ====== AUTH MIDDLEWARES ======
-function requireAuth(req, res, next) {
-  if (req.session?.user) return next();
-  return res.status(401).json({ ok: false, error: "NO_SESSION" });
-}
-
-function requireAuthPage(req, res, next) {
-  if (req.session?.user) return next();
-  return res.redirect("/login.html");
-}
-
 // ====== HEADERS DE SEGURIDAD BÁSICOS ======
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+  // Ajusta si embebes la app en iframes (normalmente NO)
   res.setHeader("X-Frame-Options", "DENY");
-  // HSTS (solo si SIEMPRE sirves por HTTPS):
+
+  // Nota: HSTS solo tiene sentido si SIEMPRE sirves por HTTPS
+  // (en EasyPanel sí). Si quieres activarlo, descomenta:
   // res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+
   next();
 });
 
@@ -90,20 +80,10 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ====== BLOQUEO DE HTML SIN SESIÓN (EVITA BYPASS /dashboard.html) ======
-app.use((req, res, next) => {
-  const p = (req.path || "").toLowerCase();
+// ====== MIDDLEWARES ======
+app.use(express.json());
 
-  const isHtml = p.endsWith(".html");
-  const isLogin = p === "/login.html" || p === "/" || p === "/index.html";
-
-  if (isHtml && !isLogin && !req.session?.user) {
-    return res.redirect("/login.html");
-  }
-  return next();
-});
-
-// ====== STATIC (con headers por archivo - útil para PWA updates) ======
+// ✅ Static con headers por archivo (CLAVE para PWA updates)
 app.use(
   express.static(path.join(__dirname, "../public"), {
     etag: false,
@@ -112,7 +92,7 @@ app.use(
     setHeaders: (res, filePath) => {
       const p = filePath.replaceAll("\\", "/").toLowerCase();
 
-      // 🔥 PWA: NUNCA cachear SW/manifest en el servidor
+      // 🔥 PWA: NUNCA cachear el SW/manifest en el servidor
       if (
         p.endsWith("/g-sw.js") ||
         p.endsWith("/g-pwa.js") ||
@@ -122,13 +102,13 @@ app.use(
         return;
       }
 
-      // JS/CSS: revalidación
+      // JS/CSS: revalidación (evita quedar “pegado”)
       if (p.endsWith(".js") || p.endsWith(".css")) {
         res.setHeader("Cache-Control", "no-cache");
         return;
       }
 
-      // Imágenes / fuentes: cache opcional
+      // Imágenes / fuentes: puedes permitir cache (opcional)
       if (
         p.endsWith(".png") ||
         p.endsWith(".jpg") ||
@@ -141,6 +121,7 @@ app.use(
         p.endsWith(".ttf") ||
         p.endsWith(".otf")
       ) {
+        // Si cambias iconos seguido, pon no-cache. Si no, deja cache.
         res.setHeader("Cache-Control", "public, max-age=604800"); // 7 días
         return;
       }
@@ -152,38 +133,28 @@ app.use(
 );
 
 // ====== RUTAS DE PÁGINAS ======
+// ✅ La página principal SIEMPRE es login
 app.get("/", (req, res) => {
-  if (req.session?.user) return res.redirect("/dashboard");
-  return res.sendFile(path.join(__dirname, "../public", "login.html"));
+  res.sendFile(path.join(__dirname, "../public", "login.html"));
 });
 
-app.get("/dashboard", requireAuthPage, (req, res) => {
+app.get("/dashboard", (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "dashboard.html"));
 });
 
-app.get("/ingreso", requireAuthPage, (req, res) => {
+app.get("/ingreso", (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "ingreso.html"));
 });
 
-app.get("/salida", requireAuthPage, (req, res) => {
+app.get("/salida", (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "salida.html"));
 });
 
-app.get("/modificaciones", requireAuthPage, (req, res) => {
+app.get("/modificaciones", (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "modificaciones.html"));
 });
 
-// ✅ ruta cómoda para salir desde un link (GET)
-app.get("/logout", (req, res) => {
-  req.session.destroy((err) => {
-    // Borra cookie SIEMPRE (aunque destroy falle)
-    res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTIONS, maxAge: undefined });
-    if (err) console.error("Error destruyendo sesión (GET /logout):", err);
-    return res.redirect("/login.html");
-  });
-});
-
-// ====== LOGIN / LOGOUT API ======
+// ====== LOGIN ======
 app.post("/api/login", async (req, res) => {
   const { username, pin } = req.body || {};
 
@@ -204,23 +175,9 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Usuario o clave incorrectos." });
     }
 
-    // ✅ Regenerar sesión (previene session fixation)
-    req.session.regenerate((err) => {
-      if (err) {
-        console.error("Error regenerando sesión:", err);
-        return res.status(500).json({ error: "No se pudo iniciar sesión." });
-      }
-
-      req.session.user = {
-        id: usuario.id ?? null,
-        nombre: usuario.Nombre ?? usuario.nombre ?? username,
-        username,
-      };
-
-      return res.json({
-        ok: true,
-        usuario: { id: req.session.user.id, nombre: req.session.user.nombre },
-      });
+    return res.json({
+      ok: true,
+      usuario: { id: usuario.id, nombre: usuario.Nombre },
     });
   } catch (error) {
     console.error("Error al validar usuario en Supabase:", error);
@@ -229,28 +186,6 @@ app.post("/api/login", async (req, res) => {
     });
   }
 });
-
-app.post("/api/logout", (req, res) => {
-  req.session.destroy((err) => {
-    // ✅ Importantísimo: borrar cookie con mismas opciones (path/secure/samesite)
-    res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTIONS, maxAge: undefined });
-
-    if (err) {
-      console.error("Error destruyendo sesión (POST /api/logout):", err);
-      return res.status(500).json({ ok: false, error: "LOGOUT_ERROR" });
-    }
-
-    return res.json({ ok: true });
-  });
-});
-
-// ✅ endpoint para validar sesión desde cualquier pantalla
-app.get("/api/me", requireAuth, (req, res) => {
-  res.json({ ok: true, user: req.session.user });
-});
-
-// ====== PROTEGER TODA LA API (EXCEPTO LOGIN/LOGOUT/ME YA DEFINIDOS) ======
-app.use("/api", requireAuth);
 
 // ====== API FINCAS ======
 function normalizeIndicativo(v) {
@@ -461,7 +396,11 @@ app.delete("/api/fincas/:id", async (req, res) => {
 
     if (errDelHist) throw errDelHist;
 
-    const { error: errDelF } = await supabase.from("Fincas").delete().eq("id", fincaId);
+    const { error: errDelF } = await supabase
+      .from("Fincas")
+      .delete()
+      .eq("id", fincaId);
+
     if (errDelF) throw errDelF;
 
     return res.json({
@@ -678,11 +617,7 @@ app.delete("/api/historicoiys/:numero", async (req, res) => {
   const { numero } = req.params;
 
   try {
-    const { error } = await supabase
-      .from("historicoiys")
-      .delete()
-      .eq("Numero", numero);
-
+    const { error } = await supabase.from("historicoiys").delete().eq("Numero", numero);
     if (error) throw error;
     res.status(204).send();
   } catch (err) {
