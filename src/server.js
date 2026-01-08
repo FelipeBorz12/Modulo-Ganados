@@ -12,57 +12,83 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Robusto en producción (sirve aunque server esté en dist/ y public esté en /public)
-const PUBLIC_DIR = path.resolve(process.cwd(), "public");
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ====== CONFIG PROXY / SESIÓN ======
-// Si estás detrás de proxy (Easypanel, Nginx, Cloudflare, etc.) esto es importante
-if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1);
-}
-
-// ✅ Quita header que revela tecnología
+// ==============================
+// CONFIG BÁSICA
+// ==============================
 app.disable("x-powered-by");
-
-// ====== CONFIG ANTI-CACHE / ETAG ======
 app.set("etag", false);
 
-// ====== MIDDLEWARES ======
+// Importante si estás detrás de proxy (EasyPanel / Nginx / Cloudflare)
+app.set("trust proxy", 1);
+
+// Body parsing
 app.use(express.json());
 
+// ==============================
+// HEADERS DE SEGURIDAD BÁSICOS
+// ==============================
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "DENY");
+  next();
+});
+
+// ==============================
+// VALIDACIÓN DE ENVS (evita 500 fantasma)
+// ==============================
+const isProd = process.env.NODE_ENV === "production";
+
+const SESSION_SECRET =
+  process.env.SESSION_SECRET ||
+  (!isProd ? "dev-secret-change-me" : null);
+
+if (!SESSION_SECRET) {
+  // En producción es mejor fallar explícito que quedar en 500 silencioso
+  console.error(
+    "[server] ❌ Falta SESSION_SECRET en variables de entorno (producción)."
+  );
+}
+
+// OJO: en tu supabase.js ya avisa si falta SUPABASE_URL/ROL_KEY.
+// Aquí solo dejamos una alerta adicional (no crashea forzado).
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ROL_KEY) {
+  console.warn(
+    "[server] ⚠️ Falta SUPABASE_URL o SUPABASE_ROL_KEY. Revisa variables en EasyPanel."
+  );
+}
+
+// ==============================
+// SESIONES
+// ==============================
 app.use(
   session({
     name: "ganados.sid",
-    secret: process.env.SESSION_SECRET, // OBLIGATORIO
+    secret: SESSION_SECRET || "MISSING_SECRET_SHOULD_NOT_HAPPEN",
     resave: false,
     saveUninitialized: false,
-    rolling: true, // renueva expiración al usar la app
+    rolling: true,
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production", // HTTPS en prod
+      secure: isProd, // true en prod (https), false local
       maxAge: 1000 * 60 * 60 * 12, // 12 horas
     },
   })
 );
 
-// ====== HEADERS DE SEGURIDAD BÁSICOS ======
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("X-Frame-Options", "DENY");
-  // HSTS (solo si siempre sirves HTTPS):
-  // res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-  next();
-});
-
-// ====== CONFIG ANTI-CACHE (LOCAL / DEV) ======
-if (process.env.NODE_ENV !== "production") {
+// ==============================
+// CACHE CONTROL (DEV)
+// ==============================
+if (!isProd) {
   app.use((req, res, next) => {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
@@ -70,19 +96,21 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ✅ Static con headers por archivo (CLAVE para PWA updates)
-// ✅ Sin replaceAll (compatible con Node más viejo)
-// ✅ PUBLIC_DIR robusto para prod
+// ==============================
+// STATIC (PUBLIC) - RUTA CORRECTA
+// (esto corrige MUCHO el 500 en EasyPanel)
+// ==============================
+const PUBLIC_DIR = path.join(__dirname, "../public");
+
 app.use(
   express.static(PUBLIC_DIR, {
     etag: false,
     lastModified: false,
     maxAge: 0,
     setHeaders: (res, filePath) => {
-      // compatible: no usar replaceAll
-      const p = filePath.split(path.sep).join("/").toLowerCase();
+      const p = filePath.replaceAll("\\", "/").toLowerCase();
 
-      // 🔥 PWA: NUNCA cachear el SW/manifest en el servidor
+      // 🔥 PWA: NUNCA cachear SW/manifest desde el servidor
       if (
         p.endsWith("/g-sw.js") ||
         p.endsWith("/g-pwa.js") ||
@@ -92,7 +120,7 @@ app.use(
         return;
       }
 
-      // JS/CSS: revalidación (evita quedar “pegado”)
+      // JS/CSS: revalidación suave
       if (p.endsWith(".js") || p.endsWith(".css")) {
         res.setHeader("Cache-Control", "no-cache");
         return;
@@ -121,29 +149,72 @@ app.use(
   })
 );
 
-// ====== RUTAS DE PÁGINAS ======
-// ✅ La página principal SIEMPRE es login
+// Evita 500 por favicon si NO existe archivo físico
+app.get("/favicon.ico", (req, res) => {
+  // si tienes favicon.ico en /public, express.static lo sirve antes de llegar aquí
+  res.status(204).end();
+});
+
+// ==============================
+// MIDDLEWARES DE AUTH
+// ==============================
+function requireAuthPage(req, res, next) {
+  if (req.session?.user) return next();
+  return res.redirect("/");
+}
+
+function requireAuthApi(req, res, next) {
+  if (req.session?.user) return next();
+  return res.status(401).json({ error: "NO_SESSION" });
+}
+
+// ==============================
+// RUTAS DE PÁGINAS
+// (login SIEMPRE en /)
+// ==============================
 app.get("/", (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "login.html"));
 });
 
-app.get("/dashboard", (req, res) => {
+app.get("/dashboard", requireAuthPage, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "dashboard.html"));
 });
 
-app.get("/ingreso", (req, res) => {
+app.get("/ingreso", requireAuthPage, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "ingreso.html"));
 });
 
-app.get("/salida", (req, res) => {
+app.get("/salida", requireAuthPage, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "salida.html"));
 });
 
-app.get("/modificaciones", (req, res) => {
+app.get("/modificaciones", requireAuthPage, (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "modificaciones.html"));
 });
 
-// ====== LOGIN ======
+// (Opcional) si alguien entra directo a .html, redirige a la ruta “bonita”
+app.get("/dashboard.html", requireAuthPage, (req, res) => res.redirect("/dashboard"));
+app.get("/ingreso.html", requireAuthPage, (req, res) => res.redirect("/ingreso"));
+app.get("/salida.html", requireAuthPage, (req, res) => res.redirect("/salida"));
+app.get("/modificaciones.html", requireAuthPage, (req, res) => res.redirect("/modificaciones"));
+
+// ==============================
+// API: HEALTH (para ver rápido si vive)
+// ==============================
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    node_env: process.env.NODE_ENV || "undefined",
+    has_session_secret: !!process.env.SESSION_SECRET,
+    has_supabase_url: !!process.env.SUPABASE_URL,
+    has_supabase_rol_key: !!process.env.SUPABASE_ROL_KEY,
+    has_session: !!req.session?.user,
+  });
+});
+
+// ==============================
+// LOGIN / LOGOUT
+// ==============================
 app.post("/api/login", async (req, res) => {
   const { username, pin } = req.body || {};
 
@@ -152,9 +223,9 @@ app.post("/api/login", async (req, res) => {
   }
 
   if (!/^\d{4}$/.test(pin)) {
-    return res.status(400).json({
-      error: "La clave debe tener exactamente 4 dígitos numéricos.",
-    });
+    return res
+      .status(400)
+      .json({ error: "La clave debe tener exactamente 4 dígitos numéricos." });
   }
 
   try {
@@ -164,12 +235,16 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Usuario o clave incorrectos." });
     }
 
-    // ✅ (Opcional) guardar sesión si quieres:
-    // req.session.user = { id: usuario.id, nombre: usuario.Nombre };
+    // ✅ Guarda sesión
+    req.session.user = { id: usuario.id, nombre: usuario.Nombre };
 
-    return res.json({
-      ok: true,
-      usuario: { id: usuario.id, nombre: usuario.Nombre },
+    // (Opcional) fuerza guardado antes de responder
+    req.session.save((err) => {
+      if (err) {
+        console.error("[login] Error guardando sesión:", err);
+        // Aun así devolvemos ok (pero ideal es devolver 500)
+      }
+      return res.json({ ok: true, usuario: req.session.user });
     });
   } catch (error) {
     console.error("Error al validar usuario en Supabase:", error);
@@ -179,12 +254,34 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ====== API FINCAS ======
+app.post("/api/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("[logout] Error destruyendo sesión:", err);
+      return res.status(500).json({ error: "No se pudo cerrar sesión." });
+    }
+    // Limpia cookie
+    res.clearCookie("ganados.sid", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isProd,
+    });
+    return res.json({ ok: true });
+  });
+});
+
+app.get("/api/me", requireAuthApi, (req, res) => {
+  res.json({ ok: true, user: req.session.user });
+});
+
+// ==============================
+// API FINCAS (protegido)
+// ==============================
 function normalizeIndicativo(v) {
   return (v ?? "").toString().trim().toUpperCase();
 }
 
-app.get("/api/fincas", async (req, res) => {
+app.get("/api/fincas", requireAuthApi, async (req, res) => {
   const withCounts = req.query.withCounts === "1" || req.query.withCounts === "true";
 
   try {
@@ -195,11 +292,12 @@ app.get("/api/fincas", async (req, res) => {
 
     if (error) throw error;
 
-    if (!withCounts) {
-      return res.json(fincas || []);
-    }
+    if (!withCounts) return res.json(fincas || []);
 
-    const { data: hist, error: errH } = await supabase.from("historicoiys").select("Finca");
+    const { data: hist, error: errH } = await supabase
+      .from("historicoiys")
+      .select("Finca");
+
     if (errH) throw errH;
 
     const countsMap = new Map();
@@ -220,7 +318,7 @@ app.get("/api/fincas", async (req, res) => {
   }
 });
 
-app.post("/api/fincas", async (req, res) => {
+app.post("/api/fincas", requireAuthApi, async (req, res) => {
   const indicativo = normalizeIndicativo(req.body?.Indicativo);
 
   if (!indicativo) {
@@ -239,9 +337,7 @@ app.post("/api/fincas", async (req, res) => {
       .single();
 
     if (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({ error: "Esa finca ya existe." });
-      }
+      if (error.code === "23505") return res.status(409).json({ error: "Esa finca ya existe." });
       throw error;
     }
 
@@ -252,7 +348,7 @@ app.post("/api/fincas", async (req, res) => {
   }
 });
 
-app.put("/api/fincas/:id", async (req, res) => {
+app.put("/api/fincas/:id", requireAuthApi, async (req, res) => {
   const fincaId = Number(req.params.id);
   const nuevo = normalizeIndicativo(req.body?.Indicativo);
 
@@ -273,9 +369,7 @@ app.put("/api/fincas/:id", async (req, res) => {
       .eq("id", fincaId)
       .single();
 
-    if (errGet && errGet.code === "PGRST116") {
-      return res.status(404).json({ error: "Finca no encontrada." });
-    }
+    if (errGet && errGet.code === "PGRST116") return res.status(404).json({ error: "Finca no encontrada." });
     if (errGet) throw errGet;
 
     const viejo = (actual?.Indicativo ?? "").toString();
@@ -319,8 +413,7 @@ app.put("/api/fincas/:id", async (req, res) => {
     if (errUpdF) {
       console.error("Renombre: histórico actualizado pero finca falló:", errUpdF);
       return res.status(500).json({
-        error:
-          "Se actualizó el histórico, pero falló actualizar la finca. Revisa duplicados o permisos.",
+        error: "Se actualizó el histórico, pero falló actualizar la finca. Revisa duplicados o permisos.",
       });
     }
 
@@ -335,7 +428,7 @@ app.put("/api/fincas/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/fincas/:id", async (req, res) => {
+app.delete("/api/fincas/:id", requireAuthApi, async (req, res) => {
   const fincaId = Number(req.params.id);
   const cascade = req.query.cascade === "1" || req.query.cascade === "true";
 
@@ -356,9 +449,7 @@ app.delete("/api/fincas/:id", async (req, res) => {
       .eq("id", fincaId)
       .single();
 
-    if (errGet && errGet.code === "PGRST116") {
-      return res.status(404).json({ error: "Finca no encontrada." });
-    }
+    if (errGet && errGet.code === "PGRST116") return res.status(404).json({ error: "Finca no encontrada." });
     if (errGet) throw errGet;
 
     const indicativo = (finca?.Indicativo ?? "").toString();
@@ -390,8 +481,10 @@ app.delete("/api/fincas/:id", async (req, res) => {
   }
 });
 
-// ====== API HISTÓRICO IYS ======
-app.get("/api/historicoiys", async (req, res) => {
+// ==============================
+// API HISTÓRICO (protegido)
+// ==============================
+app.get("/api/historicoiys", requireAuthApi, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("historicoiys")
@@ -406,7 +499,7 @@ app.get("/api/historicoiys", async (req, res) => {
   }
 });
 
-app.get("/api/historicoiys/:numero", async (req, res) => {
+app.get("/api/historicoiys/:numero", requireAuthApi, async (req, res) => {
   const { numero } = req.params;
 
   try {
@@ -416,9 +509,7 @@ app.get("/api/historicoiys/:numero", async (req, res) => {
       .eq("Numero", numero)
       .single();
 
-    if (error && error.code === "PGRST116") {
-      return res.status(404).json({ error: "Registro no encontrado." });
-    }
+    if (error && error.code === "PGRST116") return res.status(404).json({ error: "Registro no encontrado." });
     if (error) throw error;
 
     res.json(data);
@@ -428,13 +519,11 @@ app.get("/api/historicoiys/:numero", async (req, res) => {
   }
 });
 
-app.post("/api/ingresos", async (req, res) => {
+app.post("/api/ingresos", requireAuthApi, async (req, res) => {
   const body = req.body || {};
 
   if (!body.FechaIngreso || !body.Numero || !body.Sexo || !body.Edad) {
-    return res.status(400).json({
-      error: "Faltan campos obligatorios para el ingreso.",
-    });
+    return res.status(400).json({ error: "Faltan campos obligatorios para el ingreso." });
   }
 
   const insertData = {
@@ -467,11 +556,7 @@ app.post("/api/ingresos", async (req, res) => {
       .single();
 
     if (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({
-          error: "Ya existe un registro con ese Número.",
-        });
-      }
+      if (error.code === "23505") return res.status(409).json({ error: "Ya existe un registro con ese Número." });
       throw error;
     }
 
@@ -482,13 +567,20 @@ app.post("/api/ingresos", async (req, res) => {
   }
 });
 
-app.post("/api/salidas", async (req, res) => {
-  const { Numero, FechaSalida, PesoSalida, PesoFinca, Destino, ValorKGsalida, Flete, Comision, Mermas } =
-    req.body || {};
+app.post("/api/salidas", requireAuthApi, async (req, res) => {
+  const {
+    Numero,
+    FechaSalida,
+    PesoSalida,
+    PesoFinca,
+    Destino,
+    ValorKGsalida,
+    Flete,
+    Comision,
+    Mermas,
+  } = req.body || {};
 
-  if (!Numero) {
-    return res.status(400).json({ error: "Falta el Número del animal." });
-  }
+  if (!Numero) return res.status(400).json({ error: "Falta el Número del animal." });
 
   if (!FechaSalida || PesoSalida === undefined || ValorKGsalida === undefined) {
     return res.status(400).json({
@@ -503,9 +595,7 @@ app.post("/api/salidas", async (req, res) => {
       .eq("Numero", Numero)
       .single();
 
-    if (errSel && errSel.code === "PGRST116") {
-      return res.status(404).json({ error: "Registro no encontrado." });
-    }
+    if (errSel && errSel.code === "PGRST116") return res.status(404).json({ error: "Registro no encontrado." });
     if (errSel) throw errSel;
 
     const updateData = {
@@ -534,7 +624,7 @@ app.post("/api/salidas", async (req, res) => {
   }
 });
 
-app.put("/api/historicoiys/:numero", async (req, res) => {
+app.put("/api/historicoiys/:numero", requireAuthApi, async (req, res) => {
   const { numero } = req.params;
   const body = req.body || {};
 
@@ -568,9 +658,7 @@ app.put("/api/historicoiys/:numero", async (req, res) => {
       .select("*")
       .single();
 
-    if (error && error.code === "PGRST116") {
-      return res.status(404).json({ error: "Registro no encontrado." });
-    }
+    if (error && error.code === "PGRST116") return res.status(404).json({ error: "Registro no encontrado." });
     if (error) throw error;
 
     res.json(data);
@@ -580,7 +668,7 @@ app.put("/api/historicoiys/:numero", async (req, res) => {
   }
 });
 
-app.delete("/api/historicoiys/:numero", async (req, res) => {
+app.delete("/api/historicoiys/:numero", requireAuthApi, async (req, res) => {
   const { numero } = req.params;
 
   try {
@@ -593,14 +681,24 @@ app.delete("/api/historicoiys/:numero", async (req, res) => {
   }
 });
 
-// ✅ (Recomendado) Handler de errores para ver el motivo real del 500 en logs
+// ==============================
+// ERROR HANDLER (para ver el error real en logs)
+// ==============================
 app.use((err, req, res, next) => {
-  console.error("🔥 ERROR:", err);
-  res.status(500).send("Internal Server Error");
+  console.error("[server] Unhandled error:", err);
+
+  // Si es API, responde JSON
+  if (req.path.startsWith("/api/")) {
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+
+  // Si es página
+  return res.status(500).send("Internal Server Error");
 });
 
-// ====== ARRANCAR SERVIDOR ======
+// ==============================
+// ARRANCAR SERVIDOR
+// ==============================
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Ganados escuchando en http://localhost:${PORT}/`);
-  console.log(`📁 Public dir: ${PUBLIC_DIR}`);
 });
