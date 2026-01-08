@@ -3,6 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import session from "express-session";
 import { supabase, validarUsuario } from "./supabase.js";
 
 dotenv.config();
@@ -14,8 +15,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ====== CONFIG BÁSICA ======
+if (!process.env.SESSION_SECRET) {
+  console.warn(
+    "⚠️ Falta SESSION_SECRET en .env. En producción DEBES definirlo."
+  );
+}
+
 // ✅ Importante detrás de EasyPanel / reverse proxy (HTTPS)
-app.set("trust proxy", 1);
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 // ✅ Quita header que revela tecnología
 app.disable("x-powered-by");
@@ -23,18 +33,44 @@ app.disable("x-powered-by");
 // ====== CONFIG ANTI-CACHE / ETAG ======
 app.set("etag", false);
 
+// ====== BODY PARSER ======
+app.use(express.json());
+
+// ====== MIDDLEWARE DE SESIONES ======
+app.use(
+  session({
+    name: "ganados.sid",
+    secret: process.env.SESSION_SECRET || "dev-insecure-secret",
+    resave: false,
+    saveUninitialized: false,
+    rolling: true, // renueva expiración al usar la app
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production", // requiere HTTPS en prod
+      maxAge: 1000 * 60 * 60 * 12, // 12 horas
+    },
+  })
+);
+
+// ====== AUTH MIDDLEWARES ======
+function requireAuth(req, res, next) {
+  if (req.session?.user) return next();
+  return res.status(401).json({ ok: false, error: "NO_SESSION" });
+}
+
+function requireAuthPage(req, res, next) {
+  if (req.session?.user) return next();
+  return res.redirect("/login.html");
+}
+
 // ====== HEADERS DE SEGURIDAD BÁSICOS ======
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Ajusta si embebes la app en iframes (normalmente NO)
   res.setHeader("X-Frame-Options", "DENY");
-
-  // Nota: HSTS solo tiene sentido si SIEMPRE sirves por HTTPS
-  // (en EasyPanel sí). Si quieres activarlo, descomenta:
+  // HSTS (solo si siempre sirves por HTTPS):
   // res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-
   next();
 });
 
@@ -52,10 +88,22 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-// ====== MIDDLEWARES ======
-app.use(express.json());
+// ====== BLOQUEO DE HTML SIN SESIÓN (EVITA BYPASS /dashboard.html) ======
+app.use((req, res, next) => {
+  const p = (req.path || "").toLowerCase();
 
-// ✅ Static con headers por archivo (CLAVE para PWA updates)
+  // Deja pasar login y assets (no terminan en .html)
+  const isHtml = p.endsWith(".html");
+  const isLogin = p === "/login.html" || p === "/" || p === "/index.html";
+
+  if (isHtml && !isLogin && !req.session?.user) {
+    return res.redirect("/login.html");
+  }
+
+  return next();
+});
+
+// ====== STATIC (con headers por archivo - útil para PWA updates) ======
 app.use(
   express.static(path.join(__dirname, "../public"), {
     etag: false,
@@ -64,7 +112,7 @@ app.use(
     setHeaders: (res, filePath) => {
       const p = filePath.replaceAll("\\", "/").toLowerCase();
 
-      // 🔥 PWA: NUNCA cachear el SW/manifest en el servidor
+      // 🔥 PWA: NUNCA cachear SW/manifest en el servidor
       if (
         p.endsWith("/g-sw.js") ||
         p.endsWith("/g-pwa.js") ||
@@ -80,7 +128,7 @@ app.use(
         return;
       }
 
-      // Imágenes / fuentes: puedes permitir cache (opcional)
+      // Imágenes / fuentes: cache opcional
       if (
         p.endsWith(".png") ||
         p.endsWith(".jpg") ||
@@ -93,7 +141,6 @@ app.use(
         p.endsWith(".ttf") ||
         p.endsWith(".otf")
       ) {
-        // Si cambias iconos seguido, pon no-cache. Si no, deja cache.
         res.setHeader("Cache-Control", "public, max-age=604800"); // 7 días
         return;
       }
@@ -105,28 +152,29 @@ app.use(
 );
 
 // ====== RUTAS DE PÁGINAS ======
-// ✅ La página principal SIEMPRE es login
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "login.html"));
+  // Si hay sesión, manda al dashboard “bonito”
+  if (req.session?.user) return res.redirect("/dashboard");
+  return res.sendFile(path.join(__dirname, "../public", "login.html"));
 });
 
-app.get("/dashboard", (req, res) => {
+app.get("/dashboard", requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "dashboard.html"));
 });
 
-app.get("/ingreso", (req, res) => {
+app.get("/ingreso", requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "ingreso.html"));
 });
 
-app.get("/salida", (req, res) => {
+app.get("/salida", requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "salida.html"));
 });
 
-app.get("/modificaciones", (req, res) => {
+app.get("/modificaciones", requireAuthPage, (req, res) => {
   res.sendFile(path.join(__dirname, "../public", "modificaciones.html"));
 });
 
-// ====== LOGIN ======
+// ====== LOGIN / LOGOUT ======
 app.post("/api/login", async (req, res) => {
   const { username, pin } = req.body || {};
 
@@ -147,9 +195,24 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Usuario o clave incorrectos." });
     }
 
-    return res.json({
-      ok: true,
-      usuario: { id: usuario.id, nombre: usuario.Nombre },
+    // ✅ Regenerar sesión (previene session fixation)
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error("Error regenerando sesión:", err);
+        return res.status(500).json({ error: "No se pudo iniciar sesión." });
+      }
+
+      // Guarda lo mínimo necesario
+      req.session.user = {
+        id: usuario.id ?? null,
+        nombre: usuario.Nombre ?? usuario.nombre ?? username,
+        username,
+      };
+
+      return res.json({
+        ok: true,
+        usuario: { id: req.session.user.id, nombre: req.session.user.nombre },
+      });
     });
   } catch (error) {
     console.error("Error al validar usuario en Supabase:", error);
@@ -158,6 +221,25 @@ app.post("/api/login", async (req, res) => {
     });
   }
 });
+
+app.post("/api/logout", (req, res) => {
+  req.session.destroy((err) => {
+    res.clearCookie("ganados.sid");
+    if (err) {
+      console.error("Error destruyendo sesión:", err);
+      return res.status(500).json({ ok: false, error: "LOGOUT_ERROR" });
+    }
+    return res.json({ ok: true });
+  });
+});
+
+// ✅ (Opcional pero recomendado) comprobar sesión desde el frontend
+app.get("/api/me", requireAuth, (req, res) => {
+  res.json({ ok: true, user: req.session.user });
+});
+
+// ====== PROTEGER TODA LA API (EXCEPTO LOGIN/LOGOUT YA DEFINIDOS) ======
+app.use("/api", requireAuth);
 
 // ====== API FINCAS ======
 function normalizeIndicativo(v) {
@@ -368,11 +450,7 @@ app.delete("/api/fincas/:id", async (req, res) => {
 
     if (errDelHist) throw errDelHist;
 
-    const { error: errDelF } = await supabase
-      .from("Fincas")
-      .delete()
-      .eq("id", fincaId);
-
+    const { error: errDelF } = await supabase.from("Fincas").delete().eq("id", fincaId);
     if (errDelF) throw errDelF;
 
     return res.json({
@@ -589,7 +667,11 @@ app.delete("/api/historicoiys/:numero", async (req, res) => {
   const { numero } = req.params;
 
   try {
-    const { error } = await supabase.from("historicoiys").delete().eq("Numero", numero);
+    const { error } = await supabase
+      .from("historicoiys")
+      .delete()
+      .eq("Numero", numero);
+
     if (error) throw error;
     res.status(204).send();
   } catch (err) {
