@@ -275,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
   async function deleteByNumero(numero) {
     const res = await apiFetch(
       `/api/historicoiys/${encodeURIComponent(numero)}`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     );
     if (!res.ok && res.status !== 204) {
       const txt = await res.text().catch(() => "");
@@ -426,7 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function applyColumnFilters(rows, mode) {
     const filters = columnFilters[mode] || {};
     const activeKeys = Object.keys(filters).filter(
-      (k) => (filters[k] ?? "").toString().trim() !== ""
+      (k) => (filters[k] ?? "").toString().trim() !== "",
     );
     if (!activeKeys.length) return rows;
 
@@ -542,8 +542,8 @@ document.addEventListener("DOMContentLoaded", () => {
       which === "recalc"
         ? predRecalcBtn
         : which === "toggle"
-        ? predToggleBtn
-        : null;
+          ? predToggleBtn
+          : null;
 
     if (!btn) return;
 
@@ -626,7 +626,7 @@ document.addEventListener("DOMContentLoaded", () => {
         acc[k] = (acc[k] || 0) + 1;
         return acc;
       },
-      { MACHO: 0, HEMBRA: 0, OTRO: 0, "N/A": 0 }
+      { MACHO: 0, HEMBRA: 0, OTRO: 0, "N/A": 0 },
     );
 
     function bestBucket(rows, step = 25) {
@@ -693,32 +693,32 @@ document.addEventListener("DOMContentLoaded", () => {
     parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
     parts.push(
       `• Registros filtrados: <strong>${nw(
-        baseRows.length.toLocaleString("es-CO")
-      )}</strong>`
+        baseRows.length.toLocaleString("es-CO"),
+      )}</strong>`,
     );
     parts.push(
       `• Salidas en el filtro: <strong>${nw(
-        salidas.length.toLocaleString("es-CO")
-      )}</strong>`
+        salidas.length.toLocaleString("es-CO"),
+      )}</strong>`,
     );
 
     parts.push(
       `• Sexo: Machos <strong>${nw(
-        sexCounts.MACHO.toLocaleString("es-CO")
+        sexCounts.MACHO.toLocaleString("es-CO"),
       )}</strong>, Hembras <strong>${nw(
-        sexCounts.HEMBRA.toLocaleString("es-CO")
+        sexCounts.HEMBRA.toLocaleString("es-CO"),
       )}</strong>` +
         (sexCounts["N/A"]
           ? `, Sin dato ${nw(sexCounts["N/A"].toLocaleString("es-CO"))}`
           : "") +
         (sexCounts.OTRO
           ? `, Otros ${nw(sexCounts.OTRO.toLocaleString("es-CO"))}`
-          : "")
+          : ""),
     );
 
     if (!salidas.length) {
       parts.push(
-        `<br><span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
+        `<br><span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`,
       );
       return parts.join("<br>");
     }
@@ -726,8 +726,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (d !== null)
       parts.push(
         `• Días promedio en finca (salidas): <strong>${nw(
-          d.toFixed(1) + " días"
-        )}</strong>`
+          d.toFixed(1) + " días",
+        )}</strong>`,
       );
 
     if (u !== null) {
@@ -735,23 +735,23 @@ document.addEventListener("DOMContentLoaded", () => {
         `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
           (margenPct === null
             ? ""
-            : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`)
+            : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`),
       );
     }
 
     if (uDia !== null)
       parts.push(
-        `• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`
+        `• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`,
       );
 
     if (g !== null) {
       parts.push(
         `• Ganancia de peso promedio: <strong>${nw(
-          g.toFixed(1) + " kg"
+          g.toFixed(1) + " kg",
         )}</strong>` +
           (kgDia === null
             ? ""
-            : ` (~<strong>${nw(kgDia.toFixed(2) + " kg/día")}</strong>)`)
+            : ` (~<strong>${nw(kgDia.toFixed(2) + " kg/día")}</strong>)`),
       );
     }
 
@@ -760,30 +760,30 @@ document.addEventListener("DOMContentLoaded", () => {
       const c = sugGlobal.bestTotal;
 
       parts.push(
-        `<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`
+        `<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`,
       );
       parts.push(
         `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${nw(
-          `${b.start}-${b.end} kg`
+          `${b.start}-${b.end} kg`,
         )}</strong> fue tu mejor rango (n=${nw(String(b.n))}). ` +
           `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(
-            b.avgD.toFixed(1) + " días"
-          )}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`
+            b.avgD.toFixed(1) + " días",
+          )}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`,
       );
 
       if (c && c.key !== b.key) {
         parts.push(
           `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${nw(
-            `${c.start}-${c.end} kg`
+            `${c.start}-${c.end} kg`,
           )}</strong> fue el mejor (n=${nw(String(c.n))}). ` +
             `Prom: <strong>${nw(
-              fmtMoney(c.avgU)
-            )}</strong> por animal (margen ~${nw(c.avgMarg.toFixed(2) + "%")}).`
+              fmtMoney(c.avgU),
+            )}</strong> por animal (margen ~${nw(c.avgMarg.toFixed(2) + "%")}).`,
         );
       }
     } else {
       parts.push(
-        `<br><strong>Sugerencia de peso:</strong> todavía no hay suficientes salidas “completas” (peso/días/utilidad) para recomendar un rango con confianza (mínimo 3 casos por rango).`
+        `<br><strong>Sugerencia de peso:</strong> todavía no hay suficientes salidas “completas” (peso/días/utilidad) para recomendar un rango con confianza (mínimo 3 casos por rango).`,
       );
     }
 
@@ -792,23 +792,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const bb = sugM.bestPorDia;
       sexoSugLines.push(
         `• <strong>Machos</strong>: mejor por día <strong>${nw(
-          `${bb.start}-${bb.end} kg`
-        )}</strong> (n=${nw(String(bb.n))}).`
+          `${bb.start}-${bb.end} kg`,
+        )}</strong> (n=${nw(String(bb.n))}).`,
       );
     }
     if (sugH?.bestPorDia) {
       const bb = sugH.bestPorDia;
       sexoSugLines.push(
         `• <strong>Hembras</strong>: mejor por día <strong>${nw(
-          `${bb.start}-${bb.end} kg`
-        )}</strong> (n=${nw(String(bb.n))}).`
+          `${bb.start}-${bb.end} kg`,
+        )}</strong> (n=${nw(String(bb.n))}).`,
       );
     }
     if (sexoSugLines.length) {
       parts.push(
         `<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join(
-          "<br>"
-        )}`
+          "<br>",
+        )}`,
       );
     }
 
@@ -861,8 +861,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (stale) {
       showEl(predStaleBar);
       if (!predComputedHash) {
-        elStatPred.innerHTML =
-          `<span class="text-gray-500 dark:text-gray-400">Pulsa <strong>“Recalcular”</strong> para generar la predicción.</span>`;
+        elStatPred.innerHTML = `<span class="text-gray-500 dark:text-gray-400">Pulsa <strong>“Recalcular”</strong> para generar la predicción.</span>`;
       }
     } else {
       hideEl(predStaleBar);
@@ -884,7 +883,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "text-primary",
         "shadow-sm",
         "text-gray-600",
-        "dark:text-gray-200/80"
+        "dark:text-gray-200/80",
       );
     });
 
@@ -918,7 +917,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const size = pageSize === Infinity ? sortedView.length : pageSize;
     const maxPage = Math.max(
       1,
-      Math.ceil(sortedView.length / Math.max(1, size))
+      Math.ceil(sortedView.length / Math.max(1, size)),
     );
     if (page > maxPage) page = maxPage;
 
@@ -941,18 +940,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sumCompraIngresos = ingresosRows.reduce(
       (a, r) => a + (Number(r.totalIngreso) || 0),
-      0
+      0,
     );
 
     const salidas = baseRows.filter(hasSalida);
 
     const sumCompraSalidas = salidas.reduce(
       (a, r) => a + (Number(r.totalIngreso) || 0),
-      0
+      0,
     );
     const sumVentaSalidas = salidas.reduce(
       (a, r) => a + (Number(r.totalSalida) || 0),
-      0
+      0,
     );
     const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
     const margen =
@@ -1032,8 +1031,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elStatDiasProm)
       elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
 
-    if (elStatValorIng) elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
-    if (elStatValorSal) elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
+    if (elStatValorIng)
+      elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
+    if (elStatValorSal)
+      elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
 
     if (elStatUtilProm) {
       if (u === null) elStatUtilProm.textContent = "-";
@@ -1064,7 +1065,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const start = total ? startIdx + 1 : 0;
     const end = total ? startIdx + pageCount : 0;
     const txt = `Mostrando ${start.toLocaleString(
-      "es-CO"
+      "es-CO",
     )}–${end.toLocaleString("es-CO")} de ${total.toLocaleString("es-CO")}`;
 
     if (pageInfoTop) pageInfoTop.textContent = txt;
@@ -1072,7 +1073,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const maxPage = Math.max(
       1,
-      Math.ceil(total / (pageSize === Infinity ? total || 1 : pageSize))
+      Math.ceil(total / (pageSize === Infinity ? total || 1 : pageSize)),
     );
 
     const disablePrev = page <= 1 || pageSize === Infinity;
@@ -1086,11 +1087,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateSelectionInfo(viewRowsAll) {
     const selectedInView = viewRowsAll.filter((r) =>
-      selectedKeys.has(rowKey(r))
+      selectedKeys.has(rowKey(r)),
     ).length;
     const msg = selectedKeys.size
       ? `Seleccionados: ${selectedKeys.size.toLocaleString(
-          "es-CO"
+          "es-CO",
         )} (en esta vista: ${selectedInView.toLocaleString("es-CO")}).`
       : "Totales basados en todos los registros filtrados.";
 
@@ -1127,7 +1128,7 @@ document.addEventListener("DOMContentLoaded", () => {
     toastBox.classList.remove(
       "bg-black/80",
       "bg-emerald-600/90",
-      "bg-rose-600/90"
+      "bg-rose-600/90",
     );
     if (variant === "success") toastBox.classList.add("bg-emerald-600/90");
     else if (variant === "error") toastBox.classList.add("bg-rose-600/90");
@@ -1289,8 +1290,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.type = "button";
         btn.className = "colf-btn";
         btn.title = "Buscar en esta columna";
-        btn.innerHTML =
-          `<span class="material-symbols-outlined text-[20px] text-gray-600 dark:text-gray-200">search</span>`;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[20px] text-gray-600 dark:text-gray-200">search</span>`;
 
         // evita drag scroll
         btn.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -1334,8 +1334,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "absolute right-1 top-1/2 -translate-y-1/2 size-8 rounded-full " +
         "hover:bg-gray-200/70 dark:hover:bg-white/10 transition flex items-center justify-center";
       clearBtn.title = "Limpiar";
-      clearBtn.innerHTML =
-        `<span class="material-symbols-outlined text-[18px] text-gray-500">close</span>`;
+      clearBtn.innerHTML = `<span class="material-symbols-outlined text-[18px] text-gray-500">close</span>`;
 
       const setClearVisible = () => {
         if ((input.value || "").trim()) clearBtn.classList.remove("hidden");
@@ -1388,7 +1387,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             page = 1;
             render();
-          }, 320)
+          }, 320),
         );
       });
 
@@ -1404,7 +1403,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Body
     tablaBody.innerHTML = "";
 
-    const rightCols = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
+    const rightCols = new Set([
+      "Peso",
+      "_pesoIng",
+      "_pesoSal",
+      "gananciaKg",
+      "dias",
+    ]);
     const moneyCols = new Set([
       "ValorKGingreso",
       "totalIngreso",
@@ -1454,7 +1459,8 @@ document.addEventListener("DOMContentLoaded", () => {
           btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">delete</span> Borrar`;
           btn.addEventListener("click", () => {
             const numero = r?.Numero ?? "";
-            if (!numero) return alert("No se pudo identificar el Número para borrar.");
+            if (!numero)
+              return alert("No se pudo identificar el Número para borrar.");
             openDeleteModal(numero);
           });
           td.appendChild(btn);
@@ -1532,6 +1538,11 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       tablaBody.appendChild(tr);
+    });
+    // ✅ recalcula alturas reales de header/filtros para sticky correcto
+    requestAnimationFrame(() => {
+      syncHeaderHeightVar(); // por si cambió el header arriba
+      syncTheadHeights(); // esto corrige el top del segundo row
     });
   }
 
@@ -1614,15 +1625,23 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNextTop && pageNextTop.addEventListener("click", next);
     pageNextBottom && pageNextBottom.addEventListener("click", next);
 
-    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(100));
-    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(200));
-    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(300));
-    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
+    pageSize100Top &&
+      pageSize100Top.addEventListener("click", () => setSize(100));
+    pageSize200Top &&
+      pageSize200Top.addEventListener("click", () => setSize(200));
+    pageSize300Top &&
+      pageSize300Top.addEventListener("click", () => setSize(300));
+    pageSizeAllTop &&
+      pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
 
-    pageSize100Bottom && pageSize100Bottom.addEventListener("click", () => setSize(100));
-    pageSize200Bottom && pageSize200Bottom.addEventListener("click", () => setSize(200));
-    pageSize300Bottom && pageSize300Bottom.addEventListener("click", () => setSize(300));
-    pageSizeAllBottom && pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
+    pageSize100Bottom &&
+      pageSize100Bottom.addEventListener("click", () => setSize(100));
+    pageSize200Bottom &&
+      pageSize200Bottom.addEventListener("click", () => setSize(200));
+    pageSize300Bottom &&
+      pageSize300Bottom.addEventListener("click", () => setSize(300));
+    pageSizeAllBottom &&
+      pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
 
     syncPageSizeButtonsUI();
   }
@@ -1645,7 +1664,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "bg-white",
         "dark:bg-[#1a1926]",
         "text-primary",
-        "shadow-sm"
+        "shadow-sm",
       );
       if (pageSize === val)
         btn.className =
@@ -1692,7 +1711,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (from && to) {
         spanDays = Math.max(
           1,
-          Math.round((to.getTime() - from.getTime()) / msDay) + 1
+          Math.round((to.getTime() - from.getTime()) / msDay) + 1,
         );
       }
 
@@ -1731,10 +1750,14 @@ document.addEventListener("DOMContentLoaded", () => {
       render();
     };
 
-    rangePrevTop && rangePrevTop.addEventListener("click", () => shiftRange(-1));
-    rangePrevBottom && rangePrevBottom.addEventListener("click", () => shiftRange(-1));
-    rangeNextTop && rangeNextTop.addEventListener("click", () => shiftRange(+1));
-    rangeNextBottom && rangeNextBottom.addEventListener("click", () => shiftRange(+1));
+    rangePrevTop &&
+      rangePrevTop.addEventListener("click", () => shiftRange(-1));
+    rangePrevBottom &&
+      rangePrevBottom.addEventListener("click", () => shiftRange(-1));
+    rangeNextTop &&
+      rangeNextTop.addEventListener("click", () => shiftRange(+1));
+    rangeNextBottom &&
+      rangeNextBottom.addEventListener("click", () => shiftRange(+1));
 
     rangeClearTop && rangeClearTop.addEventListener("click", clearRange);
     rangeClearBottom && rangeClearBottom.addEventListener("click", clearRange);
@@ -1747,7 +1770,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btnExportarTodo.addEventListener("click", () => {
         exportXLSX(
           allRows,
-          `historico_TODO_${new Date().toISOString().slice(0, 10)}.xlsx`
+          `historico_TODO_${new Date().toISOString().slice(0, 10)}.xlsx`,
         );
       });
 
@@ -1764,12 +1787,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (selectedKeys.size > 0) {
           const selectedInView = rowsForExport.filter((r) =>
-            selectedKeys.has(rowKey(r))
+            selectedKeys.has(rowKey(r)),
           );
           if (!selectedInView.length) {
             return alert(
               "Tienes registros seleccionados, pero ninguno está dentro de la vista/filtros actuales.\n\n" +
-                "Quita filtros o selecciona dentro de esta vista para exportar."
+                "Quita filtros o selecciona dentro de esta vista para exportar.",
             );
           }
           rowsToExport = selectedInView;
@@ -1777,12 +1800,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (!rowsToExport.length) {
-          return alert("No hay datos para exportar con la vista/filtros actuales.");
+          return alert(
+            "No hay datos para exportar con la vista/filtros actuales.",
+          );
         }
 
         exportXLSX(
           rowsToExport,
-          `historico_${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`
+          `historico_${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`,
         );
       });
   }
@@ -1790,11 +1815,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function bindFab() {
     fabTop &&
       fabTop.addEventListener("click", () =>
-        window.scrollTo({ top: 0, behavior: "smooth" })
+        window.scrollTo({ top: 0, behavior: "smooth" }),
       );
     fabBottom &&
       fabBottom.addEventListener("click", () =>
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        }),
       );
   }
 
@@ -1804,7 +1832,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnLogout && btnLogout.addEventListener("click", open);
     logoutCancel && logoutCancel.addEventListener("click", close);
-    logoutConfirm && logoutConfirm.addEventListener("click", async () => await doLogout());
+    logoutConfirm &&
+      logoutConfirm.addEventListener("click", async () => await doLogout());
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") close();
@@ -1886,7 +1915,7 @@ document.addEventListener("DOMContentLoaded", () => {
           await deleteByNumero(numero);
 
           allRows = allRows.filter(
-            (r) => String(r?.Numero ?? "") !== String(numero)
+            (r) => String(r?.Numero ?? "") !== String(numero),
           );
 
           closeDeleteModal();
@@ -1976,6 +2005,19 @@ document.addEventListener("DOMContentLoaded", () => {
         page = 1;
         render();
       });
+  }
+  function syncTheadHeights() {
+    const headRow = tablaHead?.querySelector("tr.head-row");
+    const filterRow = tablaHead?.querySelector("tr.filter-row");
+
+    if (headRow) {
+      const h1 = Math.ceil(headRow.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--thead-row1-h", `${h1}px`);
+    }
+    if (filterRow) {
+      const h2 = Math.ceil(filterRow.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--thead-row2-h", `${h2}px`);
+    }
   }
 
   // ---------- carga ----------
