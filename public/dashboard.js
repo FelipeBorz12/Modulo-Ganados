@@ -31,6 +31,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const tablaBody = $("tabla-body");
   const tablaWrapper = $("tabla-wrapper");
 
+  // ✅ tabla element (para colgroup)
+  const tablaEl = $("tabla");
+
   // Tabs
   const btnIngreso = $("btn-ingreso");
   const btnSalida = $("btn-salida");
@@ -48,34 +51,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const elTotalGeneral = $("total-general");
   const elTotalIngresos = $("total-ingresos");
   const elTotalSalidas = $("total-salidas");
-
-  // ✅ nuevos ids de totales dinero
-  const elTotalCompraIngresos = $("total-valor-compra-ingresos");
-  const elTotalCompraSalidas = $("total-valor-compra-salidas");
-  const elTotalVentaSalidas = $("total-valor-venta-salidas");
-
+  const elTotalValorIngreso = $("total-valor-ingreso");
+  const elTotalValorSalida = $("total-valor-salida");
   const elTotalUtilidad = $("total-utilidad");
   const elTotalUtilidadPct = $("total-utilidad-pct");
 
-  // Stats cards (compact)
+  // Stats cards
   const elStatPesoIng = $("stat-peso-ing");
   const elStatPesoSal = $("stat-peso-sal");
   const elStatPesoGan = $("stat-peso-ganancia");
   const elStatValorIng = $("stat-valor-ing");
   const elStatValorSal = $("stat-valor-sal");
-
-  // ✅ nuevos stats
-  const elStatDiasProm = $("stat-dias-prom");
-  const elStatUtilProm = $("stat-utilidad-prom");
-  const elStatUtilDia = $("stat-utilidad-dia");
-  const elStatKgDia = $("stat-kg-dia");
-
-  // Predicción panel (desplegable)
   const elStatPred = $("stat-prediccion");
-  const predPanel = $("pred-panel");
-  const predToggleBtn = $("pred-toggle-btn");
-  const predStaleBar = $("pred-stale-bar");
-  const predRecalcBtn = $("pred-recalc-btn");
   const predMoreBtn = $("pred-more-btn");
   const predFade = $("pred-fade");
 
@@ -161,12 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Pred html (full)
   let predFullHTML = "-";
-
-  // ✅ predicciones: NO calcular hasta click
-  let predExpanded = false;
-  let predLoading = false;
-  let predComputedHash = null; // hash del filtro/base con el que se calculó
-  let lastBaseHash = null; // hash actual (para marcar stale)
 
   // Delete state
   let pendingDeleteNumero = null;
@@ -484,19 +465,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     elStatPred.innerHTML = predFullHTML || "-";
 
-    if (isMobile() && predExpanded && predFullHTML && predFullHTML !== "-") {
+    if (isMobile()) {
       elStatPred.classList.add("clamp-3");
-      // “Ver más” solo tiene sentido si ya hay contenido calculado
       showEl(predMoreBtn);
-      if (predFade) {
-        showEl(predFade);
-        // en el html está hidden por default, aquí lo mostramos
-        predFade.classList.remove("hidden");
-      }
+      showEl(predFade);
     } else {
       elStatPred.classList.remove("clamp-3");
       hideEl(predMoreBtn);
-      if (predFade) predFade.classList.add("hidden");
+      hideEl(predFade);
     }
   }
 
@@ -510,82 +486,132 @@ document.addEventListener("DOMContentLoaded", () => {
     hideEl(predModal);
   }
 
-  // ---------- hash para “stale” (sin recalcular automático) ----------
-  function getBaseHash(baseRows) {
-    // La predicción usa SOLO filtros globales (fecha + search) sobre baseRows enriquecido
-    const df = (dateFromTop?.value || "").trim();
-    const dt = (dateToTop?.value || "").trim();
-    const q = (searchValue || "").trim();
-    const total = baseRows.length;
-    const sal = baseRows.filter(hasSalida).length;
+  // ---------- render ----------
+  function setActiveTabUI() {
+    const on = "bg-white dark:bg-[#1a1926] text-primary shadow-sm";
+    const off = "text-gray-600 dark:text-gray-200/80";
 
-    return `${df}|${dt}|${q}|${total}|${sal}`;
-  }
+    [btnIngreso, btnSalida].forEach((b) => {
+      if (!b) return;
+      b.classList.remove(
+        "bg-white",
+        "dark:bg-[#1a1926]",
+        "text-primary",
+        "shadow-sm",
+        "text-gray-600",
+        "dark:text-gray-200/80"
+      );
+    });
 
-  function setPredButtonsLoading(isLoading, which = "toggle") {
-    predLoading = !!isLoading;
-
-    const btn =
-      which === "recalc"
-        ? predRecalcBtn
-        : which === "toggle"
-        ? predToggleBtn
-        : null;
-
-    if (!btn) return;
-
-    btn.disabled = predLoading;
-
-    if (which === "toggle") {
-      if (predExpanded) {
-        // cuando está expandido, el texto es “Ocultar...”
-        if (predLoading) {
-          btn.innerHTML = `
-            <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
-            Cargando…
-          `;
-        } else {
-          btn.innerHTML = `
-            <span class="material-symbols-outlined text-[18px]">expand_less</span>
-            Ocultar
-          `;
-        }
-      } else {
-        if (predLoading) {
-          btn.innerHTML = `
-            <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
-            Cargando…
-          `;
-        } else {
-          btn.innerHTML = `
-            <span class="material-symbols-outlined text-[18px]">expand_more</span>
-            Ver predicciones
-          `;
-        }
-      }
+    if (btnIngreso) {
+      if (viewMode === "ingreso")
+        btnIngreso.className = btnIngreso.className + " " + on;
+      else btnIngreso.className = btnIngreso.className + " " + off;
     }
 
-    if (which === "recalc") {
-      if (predLoading) {
-        btn.innerHTML = `
-          <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
-          Recalculando…
-        `;
-      } else {
-        btn.innerHTML = `
-          <span class="material-symbols-outlined text-[18px]">refresh</span>
-          Recalcular
-        `;
-      }
+    if (btnSalida) {
+      if (viewMode === "salida")
+        btnSalida.className = btnSalida.className + " " + on;
+      else btnSalida.className = btnSalida.className + " " + off;
     }
   }
 
-  // ---------- construir predicción SOLO bajo demanda ----------
-  function buildPredictionHTML(baseRows) {
+  function render() {
+    setActiveTabUI();
+
+    // Base para totales/estadísticas (fecha + búsqueda global)
+    const base = applyFiltersBase(allRows).map(enrichRow);
+
+    renderTotales(base);
+    renderStats(base);
+
+    // ✅ Vista tabla/export: TAB + filtros por columna + sort
+    const view = applyViewMode(base);
+    const colFiltered = applyColumnFilters(view, viewMode);
+    const sortedView = applySort(colFiltered);
+
+    // Paginación
+    const size = pageSize === Infinity ? sortedView.length : pageSize;
+    const maxPage = Math.max(
+      1,
+      Math.ceil(sortedView.length / Math.max(1, size))
+    );
+    if (page > maxPage) page = maxPage;
+
+    const startIdx = (page - 1) * size;
+    const pageRows = sortedView.slice(startIdx, startIdx + size);
+
+    renderPager(sortedView.length, pageRows.length, startIdx);
+    renderTable(pageRows, viewMode, sortedView);
+    updateSelectionInfo(sortedView, pageRows);
+
+    // ✅ devuelve el foco al input de filtro de columna
+    restoreColumnFilterFocus();
+  }
+
+  function renderTotales(baseRows) {
+    // contexto total (dataset completo)
+    const totalContexto = allRows.length;
+
+    // dentro del filtro actual (fechas + búsqueda)
+    const totalFiltrado = baseRows.length;
+
+    // salidas dentro del filtro
+    const totalSalidas = baseRows.filter(hasSalida).length;
+
+    // ✅ ingresos = registros SIN salida dentro del filtro
+    const totalIngresos = baseRows.filter((r) => !hasSalida(r)).length; // (filtrados - salidas)
+
+    // Dinero y utilidad SOLO en salidas (tiene sentido)
+    const salidas = baseRows.filter(hasSalida);
+    const sumIng = salidas.reduce(
+      (a, r) => a + (Number(r.totalIngreso) || 0),
+      0
+    );
+    const sumSal = salidas.reduce(
+      (a, r) => a + (Number(r.totalSalida) || 0),
+      0
+    );
+    const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
+    const margen = sumIng > 0 ? (sumUtil / sumIng) * 100 : null;
+
+    if (elTotalGeneral)
+      elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
+    if (elTotalIngresos)
+      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
+    if (elTotalSalidas)
+      elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
+
+    if (elTotalValorIngreso) elTotalValorIngreso.textContent = fmtMoney(sumIng);
+    if (elTotalValorSalida) elTotalValorSalida.textContent = fmtMoney(sumSal);
+
+    if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
+    if (elTotalUtilidadPct)
+      elTotalUtilidadPct.textContent =
+        margen === null ? "-" : `${margen.toFixed(2)}%`;
+  }
+
+  function renderStats(baseRows) {
     const salidas = baseRows.filter(hasSalida);
 
     const prom = (xs) =>
       xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+    const pesosIng = salidas
+      .map((r) => r._pesoIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const pesosSal = salidas
+      .map((r) => r._pesoSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const ganKg = salidas
+      .map((r) => r.gananciaKg)
+      .filter((v) => Number.isFinite(v));
+    const vIng = salidas
+      .map((r) => r._vIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const vSal = salidas
+      .map((r) => r._vSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
 
     const dias = salidas
       .map((r) => r.dias)
@@ -596,18 +622,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const ingresos = salidas
       .map((r) => r.totalIngreso)
       .filter((v) => Number.isFinite(v) && v > 0);
-    const ganKg = salidas
-      .map((r) => r.gananciaKg)
-      .filter((v) => Number.isFinite(v));
+
+    const pIng = prom(pesosIng);
+    const pSal = prom(pesosSal);
+    const g = prom(ganKg);
+    const vI = prom(vIng);
+    const vS = prom(vSal);
 
     const d = prom(dias);
     const u = prom(utils);
     const ing = prom(ingresos);
-    const g = prom(ganKg);
 
     const margenPct = ing && ing > 0 && u !== null ? (u / ing) * 100 : null;
     const uDia = d && d > 0 && u !== null ? u / d : null;
     const kgDia = d && d > 0 && g !== null ? g / d : null;
+
+    if (elStatPesoIng)
+      elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
+    if (elStatPesoSal)
+      elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
+    if (elStatPesoGan)
+      elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
+
+    if (elStatValorIng)
+      elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
+    if (elStatValorSal)
+      elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
 
     // Sex counts (sobre el filtro actual, incluyendo ingresos sin salida)
     const sexCounts = baseRows.reduce(
@@ -680,6 +720,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sugM = bestBucket(bySexo("MACHO"), 25);
     const sugH = bestBucket(bySexo("HEMBRA"), 25);
 
+    // --- construir HTML completo ---
     const parts = [];
 
     parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
@@ -712,7 +753,9 @@ document.addEventListener("DOMContentLoaded", () => {
       parts.push(
         `<br><span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
       );
-      return parts.join("<br>");
+      predFullHTML = parts.join("<br>");
+      applyPredView();
+      return;
     }
 
     if (d !== null)
@@ -721,7 +764,6 @@ document.addEventListener("DOMContentLoaded", () => {
           d.toFixed(1) + " días"
         )}</strong>`
       );
-
     if (u !== null) {
       parts.push(
         `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
@@ -730,12 +772,10 @@ document.addEventListener("DOMContentLoaded", () => {
             : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`)
       );
     }
-
     if (uDia !== null)
       parts.push(
         `• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`
       );
-
     if (g !== null) {
       parts.push(
         `• Ganancia de peso promedio: <strong>${nw(
@@ -804,283 +844,8 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    return parts.join("<br>");
-  }
-
-  async function computePredictionOnDemand(baseRows) {
-    if (!elStatPred) return;
-
-    if (predLoading) return;
-
-    try {
-      setPredButtonsLoading(true, "toggle");
-      setPredButtonsLoading(true, "recalc");
-
-      // pinta el spinner antes de calcular fuerte
-      await new Promise((r) => setTimeout(r, 40));
-
-      predFullHTML = buildPredictionHTML(baseRows);
-      predComputedHash = getBaseHash(baseRows);
-
-      applyPredView();
-
-      // si ya está expandido, “Ver más” solo si móvil
-      if (predExpanded) applyPredView();
-
-      // stale bar ya no
-      hideEl(predStaleBar);
-    } finally {
-      setPredButtonsLoading(false, "toggle");
-      setPredButtonsLoading(false, "recalc");
-      predLoading = false;
-    }
-  }
-
-  function updatePredUIState(baseRows) {
-    if (!predPanel || !predToggleBtn || !elStatPred) return;
-
-    lastBaseHash = getBaseHash(baseRows);
-
-    // Si no está expandido, NO hacemos nada pesado: solo placeholder
-    if (!predExpanded) {
-      hideEl(predPanel);
-      predToggleBtn.setAttribute("aria-expanded", "false");
-      setPredButtonsLoading(false, "toggle"); // asegura texto correcto
-      hideEl(predStaleBar);
-      hideEl(predMoreBtn);
-      if (predFade) predFade.classList.add("hidden");
-      return;
-    }
-
-    // está expandido
-    showEl(predPanel);
-    predToggleBtn.setAttribute("aria-expanded", "true");
-    setPredButtonsLoading(false, "toggle"); // ajusta label a “Ocultar”
-
-    // si nunca calculó o cambió el filtro => stale
-    const stale = !predComputedHash || predComputedHash !== lastBaseHash;
-
-    if (stale) {
-      showEl(predStaleBar);
-
-      // si es primera vez (no hay predComputedHash), mostramos mensaje de “calculando cuando quieras”
-      if (!predComputedHash) {
-        elStatPred.innerHTML =
-          `<span class="text-gray-500 dark:text-gray-400">Pulsa <strong>“Recalcular”</strong> para generar la predicción.</span>`;
-      } else {
-        // si ya existía pero quedó stale, mantenemos el contenido viejo y avisamos arriba
-        // (no recalculamos automáticamente)
-      }
-    } else {
-      hideEl(predStaleBar);
-    }
-
+    predFullHTML = parts.join("<br>");
     applyPredView();
-  }
-
-  // ---------- render ----------
-  function setActiveTabUI() {
-    const on = "bg-white dark:bg-[#1a1926] text-primary shadow-sm";
-    const off = "text-gray-600 dark:text-gray-200/80";
-
-    [btnIngreso, btnSalida].forEach((b) => {
-      if (!b) return;
-      b.classList.remove(
-        "bg-white",
-        "dark:bg-[#1a1926]",
-        "text-primary",
-        "shadow-sm",
-        "text-gray-600",
-        "dark:text-gray-200/80"
-      );
-    });
-
-    if (btnIngreso) {
-      if (viewMode === "ingreso")
-        btnIngreso.className = btnIngreso.className + " " + on;
-      else btnIngreso.className = btnIngreso.className + " " + off;
-    }
-
-    if (btnSalida) {
-      if (viewMode === "salida")
-        btnSalida.className = btnSalida.className + " " + on;
-      else btnSalida.className = btnSalida.className + " " + off;
-    }
-  }
-
-  function render() {
-    setActiveTabUI();
-
-    // Base para totales/estadísticas (fecha + búsqueda global)
-    const base = applyFiltersBase(allRows).map(enrichRow);
-
-    renderTotales(base);
-    renderStats(base);
-
-    // ✅ predicción: UI state (NO recalcula)
-    updatePredUIState(base);
-
-    // ✅ Vista tabla/export: TAB + filtros por columna + sort
-    const view = applyViewMode(base);
-    const colFiltered = applyColumnFilters(view, viewMode);
-    const sortedView = applySort(colFiltered);
-
-    // Paginación
-    const size = pageSize === Infinity ? sortedView.length : pageSize;
-    const maxPage = Math.max(
-      1,
-      Math.ceil(sortedView.length / Math.max(1, size))
-    );
-    if (page > maxPage) page = maxPage;
-
-    const startIdx = (page - 1) * size;
-    const pageRows = sortedView.slice(startIdx, startIdx + size);
-
-    renderPager(sortedView.length, pageRows.length, startIdx);
-    renderTable(pageRows, viewMode, sortedView);
-    updateSelectionInfo(sortedView, pageRows);
-
-    // ✅ devuelve el foco al input de filtro de columna
-    restoreColumnFilterFocus();
-  }
-
-  function renderTotales(baseRows) {
-    // contexto total (dataset completo)
-    const totalContexto = allRows.length;
-
-    // dentro del filtro actual (fechas + búsqueda)
-    const totalFiltrado = baseRows.length;
-
-    // salidas dentro del filtro
-    const totalSalidas = baseRows.filter(hasSalida).length;
-
-    // ✅ ingresos = registros SIN salida dentro del filtro
-    const ingresosRows = baseRows.filter((r) => !hasSalida(r));
-    const totalIngresos = ingresosRows.length;
-
-    // ✅ total compra ingresos (sin salida)
-    const sumCompraIngresos = ingresosRows.reduce(
-      (a, r) => a + (Number(r.totalIngreso) || 0),
-      0
-    );
-
-    // Dinero y utilidad SOLO en salidas (tiene sentido)
-    const salidas = baseRows.filter(hasSalida);
-
-    const sumCompraSalidas = salidas.reduce(
-      (a, r) => a + (Number(r.totalIngreso) || 0),
-      0
-    );
-    const sumVentaSalidas = salidas.reduce(
-      (a, r) => a + (Number(r.totalSalida) || 0),
-      0
-    );
-    const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
-    const margen = sumCompraSalidas > 0 ? (sumUtil / sumCompraSalidas) * 100 : null;
-
-    if (elTotalGeneral)
-      elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
-    if (elTotalIngresos)
-      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
-    if (elTotalSalidas)
-      elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
-
-    if (elTotalCompraIngresos) elTotalCompraIngresos.textContent = fmtMoney(sumCompraIngresos);
-    if (elTotalCompraSalidas) elTotalCompraSalidas.textContent = fmtMoney(sumCompraSalidas);
-    if (elTotalVentaSalidas) elTotalVentaSalidas.textContent = fmtMoney(sumVentaSalidas);
-
-    if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
-    if (elTotalUtilidadPct)
-      elTotalUtilidadPct.textContent =
-        margen === null ? "-" : `${margen.toFixed(2)}%`;
-  }
-
-  function renderStats(baseRows) {
-    const salidas = baseRows.filter(hasSalida);
-
-    const prom = (xs) =>
-      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
-
-    const pesosIng = salidas
-      .map((r) => r._pesoIng)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const pesosSal = salidas
-      .map((r) => r._pesoSal)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const ganKg = salidas
-      .map((r) => r.gananciaKg)
-      .filter((v) => Number.isFinite(v));
-    const vIng = salidas
-      .map((r) => r._vIng)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const vSal = salidas
-      .map((r) => r._vSal)
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const dias = salidas
-      .map((r) => r.dias)
-      .filter((v) => Number.isFinite(v) && v >= 0);
-    const utils = salidas
-      .map((r) => r.utilidad)
-      .filter((v) => Number.isFinite(v));
-    const ingresos = salidas
-      .map((r) => r.totalIngreso)
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    const pIng = prom(pesosIng);
-    const pSal = prom(pesosSal);
-    const g = prom(ganKg);
-    const vI = prom(vIng);
-    const vS = prom(vSal);
-
-    const d = prom(dias);
-    const u = prom(utils);
-    const ing = prom(ingresos);
-
-    const uDia = d && d > 0 && u !== null ? u / d : null;
-    const kgDia = d && d > 0 && g !== null ? g / d : null;
-
-    if (elStatPesoIng)
-      elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
-    if (elStatPesoSal)
-      elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
-    if (elStatPesoGan)
-      elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
-
-    if (elStatDiasProm)
-      elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
-
-    if (elStatValorIng)
-      elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
-    if (elStatValorSal)
-      elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
-
-    if (elStatUtilProm) {
-      if (u === null) elStatUtilProm.textContent = "-";
-      else {
-        const n = Number(u);
-        elStatUtilProm.innerHTML = `<span class="${
-          n >= 0 ? "text-emerald-600" : "text-rose-500"
-        }">${fmtMoney(n)}</span>`;
-      }
-    }
-
-    if (elStatUtilDia) {
-      if (uDia === null) elStatUtilDia.textContent = "-";
-      else {
-        const n = Number(uDia);
-        elStatUtilDia.innerHTML = `<span class="${
-          n >= 0 ? "text-emerald-600" : "text-rose-500"
-        }">${fmtMoney(n)}</span>`;
-      }
-    }
-
-    if (elStatKgDia)
-      elStatKgDia.textContent =
-        kgDia === null ? "-" : `${Number(kgDia).toFixed(2)} kg/día`;
-
-    // ✅ predicción NO se calcula aquí
-    // (se calcula sólo al abrir el panel o al recalcular)
   }
 
   function renderPager(total, pageCount, startIdx) {
@@ -1158,6 +923,90 @@ document.addEventListener("DOMContentLoaded", () => {
     hideEl(deleteModal);
   }
 
+  // ==========================================================
+  // ✅ NUEVO: Colgroup + anchos compactos sin bajar fuente
+  // ==========================================================
+  function colWidthForKey(key, mode) {
+    // Ajustes compactos para columnas numéricas pequeñas
+    // (No cambia font-size, solo ancho/padding)
+    const map = {
+      _select: "46px",
+      _actions: "120px",
+      Numero: "160px",
+      Finca: "180px",
+      Sexo: "92px",
+      FechaIngreso: "112px",
+      FechaSalida: "112px",
+      Edad: "90px",
+      Color: "110px",
+      Raza: "120px",
+      Marcallegada: "110px",
+      Proveedor: "160px",
+      Destino: "160px",
+
+      // num pequeñas
+      Peso: "92px",
+      _pesoIng: "92px",
+      _pesoSal: "92px",
+      gananciaKg: "96px",
+      dias: "72px",
+
+      // dinero
+      ValorKGingreso: "120px",
+      _vIng: "120px",
+      _vSal: "120px",
+      totalIngreso: "140px",
+      totalSalida: "140px",
+      Flete: "110px",
+      Comision: "120px",
+      Mermas: "110px",
+      costos: "120px",
+      utilidad: "140px",
+    };
+
+    return map[key] || (mode === "salida" ? "130px" : "140px");
+  }
+
+  function mountColgroup(cols, mode) {
+    if (!tablaEl) return;
+
+    // remove old colgroup
+    const old = tablaEl.querySelector("colgroup");
+    if (old) old.remove();
+
+    const colgroup = document.createElement("colgroup");
+    cols.forEach((c) => {
+      const col = document.createElement("col");
+      col.style.width = colWidthForKey(c.key, mode);
+      colgroup.appendChild(col);
+    });
+
+    tablaEl.insertBefore(colgroup, tablaEl.firstChild);
+  }
+
+  // Separadores verticales + separadores de grupo
+  function sepClassForKey(key, isLast) {
+    if (isLast) return ""; // sin borde a la derecha
+
+    // separadores "más marcados" por grupos (después de ciertas columnas)
+    const groupSeps = new Set([
+      // comunes
+      "FechaIngreso",
+      // ingreso
+      "Proveedor",
+      // salida
+      "dias",
+      "gananciaKg",
+      "totalSalida",
+      "costos",
+    ]);
+
+    if (groupSeps.has(key)) {
+      return "border-r-2 border-gray-200 dark:border-gray-800";
+    }
+    return "border-r border-gray-200 dark:border-gray-800";
+  }
+
   function renderTable(rows, mode) {
     if (!tablaHead || !tablaBody) return;
 
@@ -1212,17 +1061,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const cols = mode === "salida" ? colsSalida : colsIngreso;
 
+    // ✅ Colgroup (anchos compactos)
+    mountColgroup(cols, mode);
+
     // Header
     tablaHead.innerHTML = "";
 
-    // --- fila 1: títulos ---
+    // --- fila 1: títulos (sticky) ---
     const theadRow = document.createElement("tr");
-    theadRow.className = "bg-gray-50 dark:bg-[#232235]";
+    theadRow.className = "bg-gray-50 dark:bg-[#232235] sticky-1";
 
     // Select-all header checkbox (solo página)
     const thSelect = document.createElement("th");
     thSelect.className =
-      "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
+      "px-2 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 " +
+      sepClassForKey("_select", false);
 
     const selectAll = document.createElement("input");
     selectAll.type = "checkbox";
@@ -1242,27 +1095,33 @@ document.addEventListener("DOMContentLoaded", () => {
     thSelect.appendChild(selectAll);
     theadRow.appendChild(thSelect);
 
-    cols.slice(1).forEach((c) => {
+    cols.slice(1).forEach((c, idx) => {
       const th = document.createElement("th");
+
+      const isLast = idx === cols.slice(1).length - 1;
       th.className =
-        "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 whitespace-nowrap";
+        "px-2 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 whitespace-nowrap " +
+        sepClassForKey(c.key, isLast);
+
       th.textContent = c.label;
       theadRow.appendChild(th);
     });
 
     tablaHead.appendChild(theadRow);
 
-    // --- fila 2: filtros por columna (debounce) ---
+    // --- fila 2: filtros por columna (sticky) ---
     const filterRow = document.createElement("tr");
-    filterRow.className = "bg-gray-50 dark:bg-[#232235]";
+    filterRow.className = "bg-gray-50 dark:bg-[#232235] sticky-2";
 
     const thEmpty = document.createElement("th");
-    thEmpty.className = "th-filter";
+    thEmpty.className = "th-filter " + sepClassForKey("_select", false);
     filterRow.appendChild(thEmpty);
 
-    cols.slice(1).forEach((c) => {
+    cols.slice(1).forEach((c, idx) => {
       const th = document.createElement("th");
-      th.className = "th-filter";
+      const isLast = idx === cols.slice(1).length - 1;
+
+      th.className = "th-filter " + sepClassForKey(c.key, isLast);
 
       if (c.key === "_actions") {
         th.innerHTML = "";
@@ -1363,16 +1222,20 @@ document.addEventListener("DOMContentLoaded", () => {
       "Mermas",
     ]);
 
-    rows.forEach((r) => {
+    rows.forEach((r, rowIdx) => {
       const tr = document.createElement("tr");
-      tr.className = "hover:bg-gray-50/70 dark:hover:bg-white/5";
+      tr.className =
+        "hover:bg-gray-50/70 dark:hover:bg-white/5 " +
+        (rowIdx % 2 === 1 ? "bg-gray-50/30 dark:bg-white/[0.03]" : "");
 
       const k = rowKey(r);
       const checked = selectedKeys.has(k);
 
       // select cell
       const td0 = document.createElement("td");
-      td0.className = "px-3 py-2";
+      td0.className =
+        "px-2 py-2 whitespace-nowrap " + sepClassForKey("_select", false);
+
       const chk = document.createElement("input");
       chk.type = "checkbox";
       chk.className = "rounded border-gray-300 dark:border-gray-600";
@@ -1385,13 +1248,17 @@ document.addEventListener("DOMContentLoaded", () => {
       td0.appendChild(chk);
       tr.appendChild(td0);
 
-      cols.slice(1).forEach((c) => {
+      cols.slice(1).forEach((c, idx) => {
+        const isLast = idx === cols.slice(1).length - 1;
+        const sep = sepClassForKey(c.key, isLast);
+
         const td = document.createElement("td");
-        td.className = "px-3 py-2 whitespace-nowrap";
+        td.className = "px-2 py-2 whitespace-nowrap " + sep;
 
         // acciones (borrar al extremo derecho)
         if (c.key === "_actions") {
-          td.className = "px-3 py-2 whitespace-nowrap text-right";
+          td.className = "px-2 py-2 whitespace-nowrap text-right " + sep;
+
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className =
@@ -1451,7 +1318,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // num formatting
         if (rightCols.has(c.key)) {
-          td.classList.add("text-right", "tabular-nums");
+          td.classList.add("text-right", "tabular-nums", "td-tight");
           td.textContent =
             v === null || v === undefined
               ? "-"
@@ -1462,7 +1329,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // money formatting
         if (moneyCols.has(c.key)) {
-          td.classList.add("text-right", "tabular-nums");
+          td.classList.add("text-right", "tabular-nums", "td-tight");
           const n = Number(v);
           if (!Number.isFinite(n)) td.textContent = "-";
           else {
@@ -1806,55 +1673,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", () => applyPredView());
   }
 
-  // ✅ Toggle + Recalc (NO calcular hasta click)
-  function bindPredPanel() {
-    if (predToggleBtn) {
-      predToggleBtn.addEventListener("click", async () => {
-        predExpanded = !predExpanded;
-
-        const base = applyFiltersBase(allRows).map(enrichRow);
-
-        // abrir
-        if (predExpanded) {
-          // muestra panel primero (sin calcular)
-          showEl(predPanel);
-          predToggleBtn.setAttribute("aria-expanded", "true");
-          setPredButtonsLoading(false, "toggle");
-
-          // si está stale o nunca calculó, calcula SOLO AHORA
-          const currentHash = getBaseHash(base);
-          const stale = !predComputedHash || predComputedHash !== currentHash;
-
-          if (stale) {
-            // calcula bajo demanda
-            await computePredictionOnDemand(base);
-          } else {
-            // ya estaba calculado para este filtro
-            applyPredView();
-          }
-        } else {
-          // cerrar: NO recalcula
-          hideEl(predPanel);
-          predToggleBtn.setAttribute("aria-expanded", "false");
-          setPredButtonsLoading(false, "toggle");
-          hideEl(predMoreBtn);
-          if (predFade) predFade.classList.add("hidden");
-        }
-
-        // refresca estado (stale bar)
-        updatePredUIState(base);
-      });
-    }
-
-    if (predRecalcBtn) {
-      predRecalcBtn.addEventListener("click", async () => {
-        const base = applyFiltersBase(allRows).map(enrichRow);
-        await computePredictionOnDemand(base);
-        updatePredUIState(base);
-      });
-    }
-  }
-
   function bindDeleteModal() {
     deleteCancel && deleteCancel.addEventListener("click", closeDeleteModal);
 
@@ -1976,11 +1794,6 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedKeys.clear();
       page = 1;
 
-      // ✅ al recargar datos, NO forzamos predicción
-      // pero sí marcamos stale para el próximo “recalcular”
-      const base = applyFiltersBase(allRows).map(enrichRow);
-      lastBaseHash = getBaseHash(base);
-
       render();
 
       setTimeout(() => hideEl(loadingModal), 120);
@@ -2001,7 +1814,6 @@ document.addEventListener("DOMContentLoaded", () => {
   bindFab();
   bindLogout();
   bindPredModal();
-  bindPredPanel(); // ✅ nuevo
   bindDeleteModal();
   bindDragScroll();
   bindSearchAndSort();
