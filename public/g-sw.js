@@ -1,7 +1,7 @@
 // public/g-sw.js
 
 // ✅ Cambia esta versión cuando despliegues cambios importantes
-const VERSION = "2026-01-08-06";
+const VERSION = "2026-01-08-08";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
