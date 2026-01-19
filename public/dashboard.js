@@ -5,23 +5,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // - Loading modal inicial
   // - Predicción: clamp móvil + modal “ver más”
   // - Búsqueda global fluida (debounce)
-  // - ✅ Filtros por columna (debounce, sin refrescar letra por letra)
+  // - ✅ Filtros por columna ahora con LUPA (se abren/cierra)
   // - Orden select
   // - Tabla: copiar número + borrar a la derecha + selección
   // - Export: Todo (siempre) + Inteligente (filtros + selección)
+  // - ✅ THEAD sticky con offset del navbar (NO se tapa)
+  // - ✅ Separadores verticales por CSS
   // ==============================
 
   // ---------- helpers DOM ----------
   const $ = (id) => document.getElementById(id);
   const showEl = (el) => el && el.classList.remove("hidden");
   const hideEl = (el) => el && el.classList.add("hidden");
+
+  // ---------- sticky offset (navbar) ----------
+  const appHeader = $("app-header");
+  function syncHeaderHeightVar() {
+    const h = appHeader ? appHeader.offsetHeight : 72;
+    document.documentElement.style.setProperty("--app-header-h", `${h}px`);
+  }
+  syncHeaderHeightVar();
+  let headerResizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(headerResizeTimer);
+    headerResizeTimer = setTimeout(syncHeaderHeightVar, 80);
+  });
+
   // Toast
   const toast = $("toast");
   const toastText = $("toast-text");
   const toastBox = $("toast-box");
-
-  // Deleting modal
-  const deletingModal = $("deleting-modal");
 
   // Loading
   const loadingModal = $("loading-modal");
@@ -30,9 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const tablaHead = $("tabla-head");
   const tablaBody = $("tabla-body");
   const tablaWrapper = $("tabla-wrapper");
-
-  // ✅ tabla element (para colgroup)
-  const tablaEl = $("tabla");
 
   // Tabs
   const btnIngreso = $("btn-ingreso");
@@ -51,18 +61,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const elTotalGeneral = $("total-general");
   const elTotalIngresos = $("total-ingresos");
   const elTotalSalidas = $("total-salidas");
-  const elTotalValorIngreso = $("total-valor-ingreso");
-  const elTotalValorSalida = $("total-valor-salida");
+
+  // ✅ nuevos ids de totales dinero
+  const elTotalCompraIngresos = $("total-valor-compra-ingresos");
+  const elTotalCompraSalidas = $("total-valor-compra-salidas");
+  const elTotalVentaSalidas = $("total-valor-venta-salidas");
+
   const elTotalUtilidad = $("total-utilidad");
   const elTotalUtilidadPct = $("total-utilidad-pct");
 
-  // Stats cards
+  // Stats cards (compact)
   const elStatPesoIng = $("stat-peso-ing");
   const elStatPesoSal = $("stat-peso-sal");
   const elStatPesoGan = $("stat-peso-ganancia");
   const elStatValorIng = $("stat-valor-ing");
   const elStatValorSal = $("stat-valor-sal");
+
+  // ✅ nuevos stats
+  const elStatDiasProm = $("stat-dias-prom");
+  const elStatUtilProm = $("stat-utilidad-prom");
+  const elStatUtilDia = $("stat-utilidad-dia");
+  const elStatKgDia = $("stat-kg-dia");
+
+  // Predicción panel (desplegable)
   const elStatPred = $("stat-prediccion");
+  const predPanel = $("pred-panel");
+  const predToggleBtn = $("pred-toggle-btn");
+  const predStaleBar = $("pred-stale-bar");
+  const predRecalcBtn = $("pred-recalc-btn");
   const predMoreBtn = $("pred-more-btn");
   const predFade = $("pred-fade");
 
@@ -136,9 +162,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const selectedKeys = new Set();
 
   // ==============================
-  // ✅ Filtros por columna (por TAB)
+  // ✅ Filtros por columna
+  // - columnFilters guarda el valor (ya lo tenías)
+  // - columnFilterUIOpen guarda si el campo está abierto (lupa -> input)
   // ==============================
   const columnFilters = { ingreso: {}, salida: {} }; // { key: "texto" }
+  const columnFilterUIOpen = { ingreso: {}, salida: {} }; // { key: true|false }
+
   const colFilterTimers = new Map(); // idInput -> timer
   let pendingColFocus = null; // { id, pos }
 
@@ -148,6 +178,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Pred html (full)
   let predFullHTML = "-";
+
+  // ✅ predicciones: NO calcular hasta click
+  let predExpanded = false;
+  let predLoading = false;
+  let predComputedHash = null;
+  let lastBaseHash = null;
 
   // Delete state
   let pendingDeleteNumero = null;
@@ -346,7 +382,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==============================
-  // ✅ Filtros por columna (debounce)
+  // ✅ Filtros por columna
   // ==============================
   function getCellValueForColumnFilter(r, key) {
     if (!r) return "";
@@ -455,7 +491,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // ---------- predicción: clamp móvil + modal ----------
+  // ---------- predicción ----------
   function isMobile() {
     return !window.matchMedia("(min-width: 768px)").matches;
   }
@@ -465,14 +501,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     elStatPred.innerHTML = predFullHTML || "-";
 
-    if (isMobile()) {
+    if (isMobile() && predExpanded && predFullHTML && predFullHTML !== "-") {
       elStatPred.classList.add("clamp-3");
       showEl(predMoreBtn);
-      showEl(predFade);
+      if (predFade) {
+        showEl(predFade);
+        predFade.classList.remove("hidden");
+      }
     } else {
       elStatPred.classList.remove("clamp-3");
       hideEl(predMoreBtn);
-      hideEl(predFade);
+      if (predFade) predFade.classList.add("hidden");
     }
   }
 
@@ -486,132 +525,78 @@ document.addEventListener("DOMContentLoaded", () => {
     hideEl(predModal);
   }
 
-  // ---------- render ----------
-  function setActiveTabUI() {
-    const on = "bg-white dark:bg-[#1a1926] text-primary shadow-sm";
-    const off = "text-gray-600 dark:text-gray-200/80";
+  function getBaseHash(baseRows) {
+    const df = (dateFromTop?.value || "").trim();
+    const dt = (dateToTop?.value || "").trim();
+    const q = (searchValue || "").trim();
+    const total = baseRows.length;
+    const sal = baseRows.filter(hasSalida).length;
 
-    [btnIngreso, btnSalida].forEach((b) => {
-      if (!b) return;
-      b.classList.remove(
-        "bg-white",
-        "dark:bg-[#1a1926]",
-        "text-primary",
-        "shadow-sm",
-        "text-gray-600",
-        "dark:text-gray-200/80"
-      );
-    });
+    return `${df}|${dt}|${q}|${total}|${sal}`;
+  }
 
-    if (btnIngreso) {
-      if (viewMode === "ingreso")
-        btnIngreso.className = btnIngreso.className + " " + on;
-      else btnIngreso.className = btnIngreso.className + " " + off;
+  function setPredButtonsLoading(isLoading, which = "toggle") {
+    predLoading = !!isLoading;
+
+    const btn =
+      which === "recalc"
+        ? predRecalcBtn
+        : which === "toggle"
+        ? predToggleBtn
+        : null;
+
+    if (!btn) return;
+
+    btn.disabled = predLoading;
+
+    if (which === "toggle") {
+      if (predExpanded) {
+        if (predLoading) {
+          btn.innerHTML = `
+            <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
+            Cargando…
+          `;
+        } else {
+          btn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px]">expand_less</span>
+            Ocultar
+          `;
+        }
+      } else {
+        if (predLoading) {
+          btn.innerHTML = `
+            <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
+            Cargando…
+          `;
+        } else {
+          btn.innerHTML = `
+            <span class="material-symbols-outlined text-[18px]">expand_more</span>
+            Ver predicciones
+          `;
+        }
+      }
     }
 
-    if (btnSalida) {
-      if (viewMode === "salida")
-        btnSalida.className = btnSalida.className + " " + on;
-      else btnSalida.className = btnSalida.className + " " + off;
+    if (which === "recalc") {
+      if (predLoading) {
+        btn.innerHTML = `
+          <span class="material-symbols-outlined spin text-[18px]">progress_activity</span>
+          Recalculando…
+        `;
+      } else {
+        btn.innerHTML = `
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          Recalcular
+        `;
+      }
     }
   }
 
-  function render() {
-    setActiveTabUI();
-
-    // Base para totales/estadísticas (fecha + búsqueda global)
-    const base = applyFiltersBase(allRows).map(enrichRow);
-
-    renderTotales(base);
-    renderStats(base);
-
-    // ✅ Vista tabla/export: TAB + filtros por columna + sort
-    const view = applyViewMode(base);
-    const colFiltered = applyColumnFilters(view, viewMode);
-    const sortedView = applySort(colFiltered);
-
-    // Paginación
-    const size = pageSize === Infinity ? sortedView.length : pageSize;
-    const maxPage = Math.max(
-      1,
-      Math.ceil(sortedView.length / Math.max(1, size))
-    );
-    if (page > maxPage) page = maxPage;
-
-    const startIdx = (page - 1) * size;
-    const pageRows = sortedView.slice(startIdx, startIdx + size);
-
-    renderPager(sortedView.length, pageRows.length, startIdx);
-    renderTable(pageRows, viewMode, sortedView);
-    updateSelectionInfo(sortedView, pageRows);
-
-    // ✅ devuelve el foco al input de filtro de columna
-    restoreColumnFilterFocus();
-  }
-
-  function renderTotales(baseRows) {
-    // contexto total (dataset completo)
-    const totalContexto = allRows.length;
-
-    // dentro del filtro actual (fechas + búsqueda)
-    const totalFiltrado = baseRows.length;
-
-    // salidas dentro del filtro
-    const totalSalidas = baseRows.filter(hasSalida).length;
-
-    // ✅ ingresos = registros SIN salida dentro del filtro
-    const totalIngresos = baseRows.filter((r) => !hasSalida(r)).length; // (filtrados - salidas)
-
-    // Dinero y utilidad SOLO en salidas (tiene sentido)
-    const salidas = baseRows.filter(hasSalida);
-    const sumIng = salidas.reduce(
-      (a, r) => a + (Number(r.totalIngreso) || 0),
-      0
-    );
-    const sumSal = salidas.reduce(
-      (a, r) => a + (Number(r.totalSalida) || 0),
-      0
-    );
-    const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
-    const margen = sumIng > 0 ? (sumUtil / sumIng) * 100 : null;
-
-    if (elTotalGeneral)
-      elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
-    if (elTotalIngresos)
-      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
-    if (elTotalSalidas)
-      elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
-
-    if (elTotalValorIngreso) elTotalValorIngreso.textContent = fmtMoney(sumIng);
-    if (elTotalValorSalida) elTotalValorSalida.textContent = fmtMoney(sumSal);
-
-    if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
-    if (elTotalUtilidadPct)
-      elTotalUtilidadPct.textContent =
-        margen === null ? "-" : `${margen.toFixed(2)}%`;
-  }
-
-  function renderStats(baseRows) {
+  function buildPredictionHTML(baseRows) {
     const salidas = baseRows.filter(hasSalida);
 
     const prom = (xs) =>
       xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
-
-    const pesosIng = salidas
-      .map((r) => r._pesoIng)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const pesosSal = salidas
-      .map((r) => r._pesoSal)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const ganKg = salidas
-      .map((r) => r.gananciaKg)
-      .filter((v) => Number.isFinite(v));
-    const vIng = salidas
-      .map((r) => r._vIng)
-      .filter((v) => Number.isFinite(v) && v > 0);
-    const vSal = salidas
-      .map((r) => r._vSal)
-      .filter((v) => Number.isFinite(v) && v > 0);
 
     const dias = salidas
       .map((r) => r.dias)
@@ -622,34 +607,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const ingresos = salidas
       .map((r) => r.totalIngreso)
       .filter((v) => Number.isFinite(v) && v > 0);
-
-    const pIng = prom(pesosIng);
-    const pSal = prom(pesosSal);
-    const g = prom(ganKg);
-    const vI = prom(vIng);
-    const vS = prom(vSal);
+    const ganKg = salidas
+      .map((r) => r.gananciaKg)
+      .filter((v) => Number.isFinite(v));
 
     const d = prom(dias);
     const u = prom(utils);
     const ing = prom(ingresos);
+    const g = prom(ganKg);
 
     const margenPct = ing && ing > 0 && u !== null ? (u / ing) * 100 : null;
     const uDia = d && d > 0 && u !== null ? u / d : null;
     const kgDia = d && d > 0 && g !== null ? g / d : null;
 
-    if (elStatPesoIng)
-      elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
-    if (elStatPesoSal)
-      elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
-    if (elStatPesoGan)
-      elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
-
-    if (elStatValorIng)
-      elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
-    if (elStatValorSal)
-      elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
-
-    // Sex counts (sobre el filtro actual, incluyendo ingresos sin salida)
     const sexCounts = baseRows.reduce(
       (acc, r) => {
         const k = normSexo(r.Sexo);
@@ -659,7 +629,6 @@ document.addEventListener("DOMContentLoaded", () => {
       { MACHO: 0, HEMBRA: 0, OTRO: 0, "N/A": 0 }
     );
 
-    // --- buckets por peso de ingreso, optimizando utilidad ---
     function bestBucket(rows, step = 25) {
       const buckets = new Map();
 
@@ -715,12 +684,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const sugGlobal = bestBucket(baseRows, 25);
-
     const bySexo = (sx) => baseRows.filter((r) => normSexo(r.Sexo) === sx);
     const sugM = bestBucket(bySexo("MACHO"), 25);
     const sugH = bestBucket(bySexo("HEMBRA"), 25);
 
-    // --- construir HTML completo ---
     const parts = [];
 
     parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
@@ -753,9 +720,7 @@ document.addEventListener("DOMContentLoaded", () => {
       parts.push(
         `<br><span class="text-amber-600 dark:text-amber-300"><strong>Ojo:</strong> Dentro del filtro no hay salidas, por eso no se puede medir utilidad/días.</span>`
       );
-      predFullHTML = parts.join("<br>");
-      applyPredView();
-      return;
+      return parts.join("<br>");
     }
 
     if (d !== null)
@@ -764,6 +729,7 @@ document.addEventListener("DOMContentLoaded", () => {
           d.toFixed(1) + " días"
         )}</strong>`
       );
+
     if (u !== null) {
       parts.push(
         `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
@@ -772,10 +738,12 @@ document.addEventListener("DOMContentLoaded", () => {
             : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`)
       );
     }
+
     if (uDia !== null)
       parts.push(
         `• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`
       );
+
     if (g !== null) {
       parts.push(
         `• Ganancia de peso promedio: <strong>${nw(
@@ -821,19 +789,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sexoSugLines = [];
     if (sugM?.bestPorDia) {
-      const b = sugM.bestPorDia;
+      const bb = sugM.bestPorDia;
       sexoSugLines.push(
         `• <strong>Machos</strong>: mejor por día <strong>${nw(
-          `${b.start}-${b.end} kg`
-        )}</strong> (n=${nw(String(b.n))}).`
+          `${bb.start}-${bb.end} kg`
+        )}</strong> (n=${nw(String(bb.n))}).`
       );
     }
     if (sugH?.bestPorDia) {
-      const b = sugH.bestPorDia;
+      const bb = sugH.bestPorDia;
       sexoSugLines.push(
         `• <strong>Hembras</strong>: mejor por día <strong>${nw(
-          `${b.start}-${b.end} kg`
-        )}</strong> (n=${nw(String(b.n))}).`
+          `${bb.start}-${bb.end} kg`
+        )}</strong> (n=${nw(String(bb.n))}).`
       );
     }
     if (sexoSugLines.length) {
@@ -844,8 +812,252 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    predFullHTML = parts.join("<br>");
+    return parts.join("<br>");
+  }
+
+  async function computePredictionOnDemand(baseRows) {
+    if (!elStatPred) return;
+    if (predLoading) return;
+
+    try {
+      setPredButtonsLoading(true, "toggle");
+      setPredButtonsLoading(true, "recalc");
+
+      await new Promise((r) => setTimeout(r, 40));
+
+      predFullHTML = buildPredictionHTML(baseRows);
+      predComputedHash = getBaseHash(baseRows);
+
+      applyPredView();
+      hideEl(predStaleBar);
+    } finally {
+      setPredButtonsLoading(false, "toggle");
+      setPredButtonsLoading(false, "recalc");
+      predLoading = false;
+    }
+  }
+
+  function updatePredUIState(baseRows) {
+    if (!predPanel || !predToggleBtn || !elStatPred) return;
+
+    lastBaseHash = getBaseHash(baseRows);
+
+    if (!predExpanded) {
+      hideEl(predPanel);
+      predToggleBtn.setAttribute("aria-expanded", "false");
+      setPredButtonsLoading(false, "toggle");
+      hideEl(predStaleBar);
+      hideEl(predMoreBtn);
+      if (predFade) predFade.classList.add("hidden");
+      return;
+    }
+
+    showEl(predPanel);
+    predToggleBtn.setAttribute("aria-expanded", "true");
+    setPredButtonsLoading(false, "toggle");
+
+    const stale = !predComputedHash || predComputedHash !== lastBaseHash;
+
+    if (stale) {
+      showEl(predStaleBar);
+      if (!predComputedHash) {
+        elStatPred.innerHTML =
+          `<span class="text-gray-500 dark:text-gray-400">Pulsa <strong>“Recalcular”</strong> para generar la predicción.</span>`;
+      }
+    } else {
+      hideEl(predStaleBar);
+    }
+
     applyPredView();
+  }
+
+  // ---------- render ----------
+  function setActiveTabUI() {
+    const on = "bg-white dark:bg-[#1a1926] text-primary shadow-sm";
+    const off = "text-gray-600 dark:text-gray-200/80";
+
+    [btnIngreso, btnSalida].forEach((b) => {
+      if (!b) return;
+      b.classList.remove(
+        "bg-white",
+        "dark:bg-[#1a1926]",
+        "text-primary",
+        "shadow-sm",
+        "text-gray-600",
+        "dark:text-gray-200/80"
+      );
+    });
+
+    if (btnIngreso) {
+      if (viewMode === "ingreso")
+        btnIngreso.className = btnIngreso.className + " " + on;
+      else btnIngreso.className = btnIngreso.className + " " + off;
+    }
+
+    if (btnSalida) {
+      if (viewMode === "salida")
+        btnSalida.className = btnSalida.className + " " + on;
+      else btnSalida.className = btnSalida.className + " " + off;
+    }
+  }
+
+  function render() {
+    setActiveTabUI();
+
+    const base = applyFiltersBase(allRows).map(enrichRow);
+
+    renderTotales(base);
+    renderStats(base);
+
+    updatePredUIState(base);
+
+    const view = applyViewMode(base);
+    const colFiltered = applyColumnFilters(view, viewMode);
+    const sortedView = applySort(colFiltered);
+
+    const size = pageSize === Infinity ? sortedView.length : pageSize;
+    const maxPage = Math.max(
+      1,
+      Math.ceil(sortedView.length / Math.max(1, size))
+    );
+    if (page > maxPage) page = maxPage;
+
+    const startIdx = (page - 1) * size;
+    const pageRows = sortedView.slice(startIdx, startIdx + size);
+
+    renderPager(sortedView.length, pageRows.length, startIdx);
+    renderTable(pageRows, viewMode);
+    updateSelectionInfo(sortedView, pageRows);
+
+    restoreColumnFilterFocus();
+  }
+
+  function renderTotales(baseRows) {
+    const totalContexto = allRows.length;
+    const totalSalidas = baseRows.filter(hasSalida).length;
+
+    const ingresosRows = baseRows.filter((r) => !hasSalida(r));
+    const totalIngresos = ingresosRows.length;
+
+    const sumCompraIngresos = ingresosRows.reduce(
+      (a, r) => a + (Number(r.totalIngreso) || 0),
+      0
+    );
+
+    const salidas = baseRows.filter(hasSalida);
+
+    const sumCompraSalidas = salidas.reduce(
+      (a, r) => a + (Number(r.totalIngreso) || 0),
+      0
+    );
+    const sumVentaSalidas = salidas.reduce(
+      (a, r) => a + (Number(r.totalSalida) || 0),
+      0
+    );
+    const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
+    const margen =
+      sumCompraSalidas > 0 ? (sumUtil / sumCompraSalidas) * 100 : null;
+
+    if (elTotalGeneral)
+      elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
+    if (elTotalIngresos)
+      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
+    if (elTotalSalidas)
+      elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
+
+    if (elTotalCompraIngresos)
+      elTotalCompraIngresos.textContent = fmtMoney(sumCompraIngresos);
+    if (elTotalCompraSalidas)
+      elTotalCompraSalidas.textContent = fmtMoney(sumCompraSalidas);
+    if (elTotalVentaSalidas)
+      elTotalVentaSalidas.textContent = fmtMoney(sumVentaSalidas);
+
+    if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
+    if (elTotalUtilidadPct)
+      elTotalUtilidadPct.textContent =
+        margen === null ? "-" : `${margen.toFixed(2)}%`;
+  }
+
+  function renderStats(baseRows) {
+    const salidas = baseRows.filter(hasSalida);
+
+    const prom = (xs) =>
+      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+    const pesosIng = salidas
+      .map((r) => r._pesoIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const pesosSal = salidas
+      .map((r) => r._pesoSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const ganKg = salidas
+      .map((r) => r.gananciaKg)
+      .filter((v) => Number.isFinite(v));
+    const vIng = salidas
+      .map((r) => r._vIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const vSal = salidas
+      .map((r) => r._vSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
+
+    const dias = salidas
+      .map((r) => r.dias)
+      .filter((v) => Number.isFinite(v) && v >= 0);
+    const utils = salidas
+      .map((r) => r.utilidad)
+      .filter((v) => Number.isFinite(v));
+    const ingresos = salidas
+      .map((r) => r.totalIngreso)
+      .filter((v) => Number.isFinite(v) && v > 0);
+
+    const pIng = prom(pesosIng);
+    const pSal = prom(pesosSal);
+    const g = prom(ganKg);
+    const vI = prom(vIng);
+    const vS = prom(vSal);
+
+    const d = prom(dias);
+    const u = prom(utils);
+
+    const uDia = d && d > 0 && u !== null ? u / d : null;
+    const kgDia = d && d > 0 && g !== null ? g / d : null;
+
+    if (elStatPesoIng)
+      elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
+    if (elStatPesoSal)
+      elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
+    if (elStatPesoGan)
+      elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
+
+    if (elStatDiasProm)
+      elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
+
+    if (elStatValorIng) elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
+    if (elStatValorSal) elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
+
+    if (elStatUtilProm) {
+      if (u === null) elStatUtilProm.textContent = "-";
+      else {
+        const n = Number(u);
+        elStatUtilProm.innerHTML = `<span class="${
+          n >= 0 ? "text-emerald-600" : "text-rose-500"
+        }">${fmtMoney(n)}</span>`;
+      }
+    }
+
+    if (elStatUtilDia) {
+      if (uDia === null) elStatUtilDia.textContent = "-";
+      else {
+        const n = Number(uDia);
+        elStatUtilDia.innerHTML = `<span class="${
+          n >= 0 ? "text-emerald-600" : "text-rose-500"
+        }">${fmtMoney(n)}</span>`;
+      }
+    }
+
+    if (elStatKgDia)
+      elStatKgDia.textContent =
+        kgDia === null ? "-" : `${Number(kgDia).toFixed(2)} kg/día`;
   }
 
   function renderPager(total, pageCount, startIdx) {
@@ -872,7 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pageNextBottom) pageNextBottom.disabled = disableNext;
   }
 
-  function updateSelectionInfo(viewRowsAll, pageRows) {
+  function updateSelectionInfo(viewRowsAll) {
     const selectedInView = viewRowsAll.filter((r) =>
       selectedKeys.has(rowKey(r))
     ).length;
@@ -906,6 +1118,27 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  let toastTimer = null;
+  function showToast(message, variant = "success") {
+    if (!toast || !toastText || !toastBox) return;
+
+    toastText.textContent = message;
+
+    toastBox.classList.remove(
+      "bg-black/80",
+      "bg-emerald-600/90",
+      "bg-rose-600/90"
+    );
+    if (variant === "success") toastBox.classList.add("bg-emerald-600/90");
+    else if (variant === "error") toastBox.classList.add("bg-rose-600/90");
+    else toastBox.classList.add("bg-black/80");
+
+    showEl(toast);
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => hideEl(toast), 1600);
+  }
+
   function openDeleteModal(numero) {
     pendingDeleteNumero = numero;
 
@@ -923,96 +1156,12 @@ document.addEventListener("DOMContentLoaded", () => {
     hideEl(deleteModal);
   }
 
-  // ==========================================================
-  // ✅ NUEVO: Colgroup + anchos compactos sin bajar fuente
-  // ==========================================================
-  function colWidthForKey(key, mode) {
-    // Ajustes compactos para columnas numéricas pequeñas
-    // (No cambia font-size, solo ancho/padding)
-    const map = {
-      _select: "46px",
-      _actions: "120px",
-      Numero: "160px",
-      Finca: "180px",
-      Sexo: "92px",
-      FechaIngreso: "112px",
-      FechaSalida: "112px",
-      Edad: "90px",
-      Color: "110px",
-      Raza: "120px",
-      Marcallegada: "110px",
-      Proveedor: "160px",
-      Destino: "160px",
-
-      // num pequeñas
-      Peso: "92px",
-      _pesoIng: "92px",
-      _pesoSal: "92px",
-      gananciaKg: "96px",
-      dias: "72px",
-
-      // dinero
-      ValorKGingreso: "120px",
-      _vIng: "120px",
-      _vSal: "120px",
-      totalIngreso: "140px",
-      totalSalida: "140px",
-      Flete: "110px",
-      Comision: "120px",
-      Mermas: "110px",
-      costos: "120px",
-      utilidad: "140px",
-    };
-
-    return map[key] || (mode === "salida" ? "130px" : "140px");
-  }
-
-  function mountColgroup(cols, mode) {
-    if (!tablaEl) return;
-
-    // remove old colgroup
-    const old = tablaEl.querySelector("colgroup");
-    if (old) old.remove();
-
-    const colgroup = document.createElement("colgroup");
-    cols.forEach((c) => {
-      const col = document.createElement("col");
-      col.style.width = colWidthForKey(c.key, mode);
-      colgroup.appendChild(col);
-    });
-
-    tablaEl.insertBefore(colgroup, tablaEl.firstChild);
-  }
-
-  // Separadores verticales + separadores de grupo
-  function sepClassForKey(key, isLast) {
-    if (isLast) return ""; // sin borde a la derecha
-
-    // separadores "más marcados" por grupos (después de ciertas columnas)
-    const groupSeps = new Set([
-      // comunes
-      "FechaIngreso",
-      // ingreso
-      "Proveedor",
-      // salida
-      "dias",
-      "gananciaKg",
-      "totalSalida",
-      "costos",
-    ]);
-
-    if (groupSeps.has(key)) {
-      return "border-r-2 border-gray-200 dark:border-gray-800";
-    }
-    return "border-r border-gray-200 dark:border-gray-800";
-  }
-
+  // ==============================
+  // ✅ Tabla + Header sticky + LUPA por columna
+  // ==============================
   function renderTable(rows, mode) {
     if (!tablaHead || !tablaBody) return;
 
-    // ✅ columnas reorganizadas:
-    // - Ingreso: NO destino; precios y totales al final
-    // - Salida: todo (incluye costos/utilidad), y acciones al extremo derecho
     const colsIngreso = [
       { key: "_select", label: "" },
       { key: "Numero", label: "Número" },
@@ -1061,21 +1210,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const cols = mode === "salida" ? colsSalida : colsIngreso;
 
-    // ✅ Colgroup (anchos compactos)
-    mountColgroup(cols, mode);
-
-    // Header
     tablaHead.innerHTML = "";
 
-    // --- fila 1: títulos (sticky) ---
+    // ---- fila 1: títulos (sticky) ----
     const theadRow = document.createElement("tr");
-    theadRow.className = "bg-gray-50 dark:bg-[#232235] sticky-1";
+    theadRow.className = "head-row";
 
-    // Select-all header checkbox (solo página)
+    // select-all
     const thSelect = document.createElement("th");
     thSelect.className =
-      "px-2 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 " +
-      sepClassForKey("_select", false);
+      "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300";
 
     const selectAll = document.createElement("input");
     selectAll.type = "checkbox";
@@ -1095,33 +1239,27 @@ document.addEventListener("DOMContentLoaded", () => {
     thSelect.appendChild(selectAll);
     theadRow.appendChild(thSelect);
 
-    cols.slice(1).forEach((c, idx) => {
+    cols.slice(1).forEach((c) => {
       const th = document.createElement("th");
-
-      const isLast = idx === cols.slice(1).length - 1;
       th.className =
-        "px-2 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 whitespace-nowrap " +
-        sepClassForKey(c.key, isLast);
-
+        "px-3 py-3 text-left text-xs font-extrabold uppercase tracking-wider text-gray-500 dark:text-gray-300 whitespace-nowrap";
       th.textContent = c.label;
       theadRow.appendChild(th);
     });
 
     tablaHead.appendChild(theadRow);
 
-    // --- fila 2: filtros por columna (sticky) ---
+    // ---- fila 2: filtros (sticky) -> LUPA / INPUT ----
     const filterRow = document.createElement("tr");
-    filterRow.className = "bg-gray-50 dark:bg-[#232235] sticky-2";
+    filterRow.className = "filter-row";
 
     const thEmpty = document.createElement("th");
-    thEmpty.className = "th-filter " + sepClassForKey("_select", false);
+    thEmpty.className = "th-filter";
     filterRow.appendChild(thEmpty);
 
-    cols.slice(1).forEach((c, idx) => {
+    cols.slice(1).forEach((c) => {
       const th = document.createElement("th");
-      const isLast = idx === cols.slice(1).length - 1;
-
-      th.className = "th-filter " + sepClassForKey(c.key, isLast);
+      th.className = "th-filter";
 
       if (c.key === "_actions") {
         th.innerHTML = "";
@@ -1129,21 +1267,99 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      const currentVal = (columnFilters[mode]?.[c.key] ?? "").toString();
+      const hasVal = currentVal.trim().length > 0;
+
+      // Si hay valor, forzamos abierto (para que no se “esconda” un filtro activo)
+      if (hasVal) columnFilterUIOpen[mode][c.key] = true;
+
+      const isOpen = !!columnFilterUIOpen[mode][c.key];
+
+      // Ensancha un poco la columna SOLO si está abierto
+      // (sin tocar tamaño de letra, solo ancho mínimo)
+      if (isOpen) th.style.minWidth = "210px";
+      else th.style.minWidth = "";
+
+      const wrap = document.createElement("div");
+      wrap.className = "colf-wrap";
+
+      if (!isOpen) {
+        // ✅ Lupa
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "colf-btn";
+        btn.title = "Buscar en esta columna";
+        btn.innerHTML =
+          `<span class="material-symbols-outlined text-[20px] text-gray-600 dark:text-gray-200">search</span>`;
+
+        // evita drag scroll
+        btn.addEventListener("mousedown", (e) => e.stopPropagation());
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          columnFilterUIOpen[mode][c.key] = true;
+
+          // foco después de render
+          const id = `colf-${mode}-${c.key}`;
+          pendingColFocus = { id, pos: currentVal.length };
+
+          render();
+        });
+
+        wrap.appendChild(btn);
+        th.appendChild(wrap);
+        filterRow.appendChild(th);
+        return;
+      }
+
+      // ✅ Input uniforme (misma medida para todas)
+      const box = document.createElement("div");
+      box.className = "relative";
+
       const input = document.createElement("input");
       input.type = "text";
       input.autocomplete = "off";
       input.spellcheck = false;
       input.id = `colf-${mode}-${c.key}`;
-      input.value = (columnFilters[mode]?.[c.key] ?? "").toString();
+      input.value = currentVal;
       input.placeholder = "Buscar…";
 
       input.className =
-        "h-9 w-full rounded-lg border-0 bg-gray-100/80 dark:bg-white/10 px-3 text-xs text-gray-900 dark:text-white " +
+        "colf-input border-0 bg-gray-100/80 dark:bg-white/10 text-xs text-gray-900 dark:text-white " +
         "ring-1 ring-inset ring-gray-200 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-primary";
 
-      // ✅ evita que el drag-scroll se “robe” el click
+      // clear button dentro del input
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className =
+        "absolute right-1 top-1/2 -translate-y-1/2 size-8 rounded-full " +
+        "hover:bg-gray-200/70 dark:hover:bg-white/10 transition flex items-center justify-center";
+      clearBtn.title = "Limpiar";
+      clearBtn.innerHTML =
+        `<span class="material-symbols-outlined text-[18px] text-gray-500">close</span>`;
+
+      const setClearVisible = () => {
+        if ((input.value || "").trim()) clearBtn.classList.remove("hidden");
+        else clearBtn.classList.add("hidden");
+      };
+      setClearVisible();
+
+      // evita drag scroll
       input.addEventListener("mousedown", (e) => e.stopPropagation());
       input.addEventListener("click", (e) => e.stopPropagation());
+      clearBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+      clearBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        input.value = "";
+        setClearVisible();
+
+        // borrar filtro + cerrar (vuelve lupa)
+        if (!columnFilters[mode]) columnFilters[mode] = {};
+        delete columnFilters[mode][c.key];
+        columnFilterUIOpen[mode][c.key] = false;
+
+        page = 1;
+        render();
+      });
 
       input.addEventListener("input", (e) => {
         const val = e.target.value || "";
@@ -1151,6 +1367,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const pos = e.target.selectionStart ?? val.length;
 
         pendingColFocus = { id, pos };
+        setClearVisible();
 
         if (colFilterTimers.has(id)) clearTimeout(colFilterTimers.get(id));
 
@@ -1159,8 +1376,15 @@ document.addEventListener("DOMContentLoaded", () => {
           setTimeout(() => {
             const v = val.trim();
             if (!columnFilters[mode]) columnFilters[mode] = {};
-            if (v) columnFilters[mode][c.key] = v;
-            else delete columnFilters[mode][c.key];
+
+            if (v) {
+              columnFilters[mode][c.key] = v;
+              columnFilterUIOpen[mode][c.key] = true; // sigue abierto
+            } else {
+              // ✅ si se borra el texto: vuelve la lupa
+              delete columnFilters[mode][c.key];
+              columnFilterUIOpen[mode][c.key] = false;
+            }
 
             page = 1;
             render();
@@ -1168,47 +1392,19 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-      th.appendChild(input);
+      box.appendChild(input);
+      box.appendChild(clearBtn);
+      wrap.appendChild(box);
+      th.appendChild(wrap);
       filterRow.appendChild(th);
     });
-
-    let toastTimer = null;
-
-    function showToast(message, variant = "success") {
-      if (!toast || !toastText || !toastBox) return;
-
-      toastText.textContent = message;
-
-      // variantes simples
-      toastBox.classList.remove(
-        "bg-black/80",
-        "bg-emerald-600/90",
-        "bg-rose-600/90"
-      );
-      if (variant === "success") toastBox.classList.add("bg-emerald-600/90");
-      else if (variant === "error") toastBox.classList.add("bg-rose-600/90");
-      else toastBox.classList.add("bg-black/80");
-
-      showEl(toast);
-
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        hideEl(toast);
-      }, 1600);
-    }
 
     tablaHead.appendChild(filterRow);
 
     // Body
     tablaBody.innerHTML = "";
 
-    const rightCols = new Set([
-      "Peso",
-      "_pesoIng",
-      "_pesoSal",
-      "gananciaKg",
-      "dias",
-    ]);
+    const rightCols = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
     const moneyCols = new Set([
       "ValorKGingreso",
       "totalIngreso",
@@ -1222,20 +1418,16 @@ document.addEventListener("DOMContentLoaded", () => {
       "Mermas",
     ]);
 
-    rows.forEach((r, rowIdx) => {
+    rows.forEach((r) => {
       const tr = document.createElement("tr");
-      tr.className =
-        "hover:bg-gray-50/70 dark:hover:bg-white/5 " +
-        (rowIdx % 2 === 1 ? "bg-gray-50/30 dark:bg-white/[0.03]" : "");
+      tr.className = "hover:bg-gray-50/70 dark:hover:bg-white/5";
 
       const k = rowKey(r);
       const checked = selectedKeys.has(k);
 
       // select cell
       const td0 = document.createElement("td");
-      td0.className =
-        "px-2 py-2 whitespace-nowrap " + sepClassForKey("_select", false);
-
+      td0.className = "px-3 py-2";
       const chk = document.createElement("input");
       chk.type = "checkbox";
       chk.className = "rounded border-gray-300 dark:border-gray-600";
@@ -1248,26 +1440,21 @@ document.addEventListener("DOMContentLoaded", () => {
       td0.appendChild(chk);
       tr.appendChild(td0);
 
-      cols.slice(1).forEach((c, idx) => {
-        const isLast = idx === cols.slice(1).length - 1;
-        const sep = sepClassForKey(c.key, isLast);
-
+      cols.slice(1).forEach((c) => {
         const td = document.createElement("td");
-        td.className = "px-2 py-2 whitespace-nowrap " + sep;
+        td.className = "px-3 py-2 whitespace-nowrap";
 
-        // acciones (borrar al extremo derecho)
         if (c.key === "_actions") {
-          td.className = "px-2 py-2 whitespace-nowrap text-right " + sep;
-
+          td.className = "px-3 py-2 whitespace-nowrap text-right";
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className =
-            "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition";
+            "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-extrabold " +
+            "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition";
           btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">delete</span> Borrar`;
           btn.addEventListener("click", () => {
             const numero = r?.Numero ?? "";
-            if (!numero)
-              return alert("No se pudo identificar el Número para borrar.");
+            if (!numero) return alert("No se pudo identificar el Número para borrar.");
             openDeleteModal(numero);
           });
           td.appendChild(btn);
@@ -1275,7 +1462,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        // Número: incluye botón copiar
         if (c.key === "Numero") {
           const numero = safeText(r.Numero);
           td.innerHTML = `
@@ -1304,11 +1490,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let v = r[c.key];
 
-        // Finca normalizada
         if (c.key === "Finca")
           v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
 
-        // fechas
         if (c.key === "FechaIngreso" || c.key === "FechaSalida") {
           const d = parseISODate(v);
           td.textContent = d ? fmtDate(d) : "-";
@@ -1316,9 +1500,8 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        // num formatting
         if (rightCols.has(c.key)) {
-          td.classList.add("text-right", "tabular-nums", "td-tight");
+          td.classList.add("text-right", "tabular-nums");
           td.textContent =
             v === null || v === undefined
               ? "-"
@@ -1327,9 +1510,8 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        // money formatting
         if (moneyCols.has(c.key)) {
-          td.classList.add("text-right", "tabular-nums", "td-tight");
+          td.classList.add("text-right", "tabular-nums");
           const n = Number(v);
           if (!Number.isFinite(n)) td.textContent = "-";
           else {
@@ -1345,7 +1527,6 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        // default
         td.textContent = v === null || v === undefined ? "" : String(v);
         tr.appendChild(td);
       });
@@ -1433,23 +1614,15 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNextTop && pageNextTop.addEventListener("click", next);
     pageNextBottom && pageNextBottom.addEventListener("click", next);
 
-    pageSize100Top &&
-      pageSize100Top.addEventListener("click", () => setSize(100));
-    pageSize200Top &&
-      pageSize200Top.addEventListener("click", () => setSize(200));
-    pageSize300Top &&
-      pageSize300Top.addEventListener("click", () => setSize(300));
-    pageSizeAllTop &&
-      pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
+    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(100));
+    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(200));
+    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(300));
+    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
 
-    pageSize100Bottom &&
-      pageSize100Bottom.addEventListener("click", () => setSize(100));
-    pageSize200Bottom &&
-      pageSize200Bottom.addEventListener("click", () => setSize(200));
-    pageSize300Bottom &&
-      pageSize300Bottom.addEventListener("click", () => setSize(300));
-    pageSizeAllBottom &&
-      pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
+    pageSize100Bottom && pageSize100Bottom.addEventListener("click", () => setSize(100));
+    pageSize200Bottom && pageSize200Bottom.addEventListener("click", () => setSize(200));
+    pageSize300Bottom && pageSize300Bottom.addEventListener("click", () => setSize(300));
+    pageSizeAllBottom && pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
 
     syncPageSizeButtonsUI();
   }
@@ -1507,7 +1680,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dateFromBottom && dateFromBottom.addEventListener("change", onChangeBottom);
     dateToBottom && dateToBottom.addEventListener("change", onChangeBottom);
 
-    const shiftRange = (dir /* -1 | +1 */) => {
+    const shiftRange = (dir) => {
       const fromVal = (dateFromTop?.value || "").trim();
       const toVal = (dateToTop?.value || "").trim();
       if (!fromVal && !toVal) return;
@@ -1558,14 +1731,10 @@ document.addEventListener("DOMContentLoaded", () => {
       render();
     };
 
-    rangePrevTop &&
-      rangePrevTop.addEventListener("click", () => shiftRange(-1));
-    rangePrevBottom &&
-      rangePrevBottom.addEventListener("click", () => shiftRange(-1));
-    rangeNextTop &&
-      rangeNextTop.addEventListener("click", () => shiftRange(+1));
-    rangeNextBottom &&
-      rangeNextBottom.addEventListener("click", () => shiftRange(+1));
+    rangePrevTop && rangePrevTop.addEventListener("click", () => shiftRange(-1));
+    rangePrevBottom && rangePrevBottom.addEventListener("click", () => shiftRange(-1));
+    rangeNextTop && rangeNextTop.addEventListener("click", () => shiftRange(+1));
+    rangeNextBottom && rangeNextBottom.addEventListener("click", () => shiftRange(+1));
 
     rangeClearTop && rangeClearTop.addEventListener("click", clearRange);
     rangeClearBottom && rangeClearBottom.addEventListener("click", clearRange);
@@ -1574,7 +1743,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function bindActions() {
     btnActualizar && btnActualizar.addEventListener("click", cargarDatos);
 
-    // ✅ 1) Exportar todo = SIEMPRE todo (ignora filtros, tab, selección)
     btnExportarTodo &&
       btnExportarTodo.addEventListener("click", () => {
         exportXLSX(
@@ -1583,9 +1751,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       });
 
-    // ✅ 2) Exportar inteligente:
-    // - si hay selección: exporta selección ∩ (filtros globales + filtros por columna + tab)
-    // - si no hay selección: exporta (filtros globales + filtros por columna + tab)
     btnExportarVista &&
       btnExportarVista.addEventListener("click", () => {
         const base = applyFiltersBase(allRows).map(enrichRow);
@@ -1612,9 +1777,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (!rowsToExport.length) {
-          return alert(
-            "No hay datos para exportar con la vista/filtros actuales."
-          );
+          return alert("No hay datos para exportar con la vista/filtros actuales.");
         }
 
         exportXLSX(
@@ -1641,8 +1804,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnLogout && btnLogout.addEventListener("click", open);
     logoutCancel && logoutCancel.addEventListener("click", close);
-    logoutConfirm &&
-      logoutConfirm.addEventListener("click", async () => await doLogout());
+    logoutConfirm && logoutConfirm.addEventListener("click", async () => await doLogout());
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") close();
@@ -1671,6 +1833,44 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     window.addEventListener("resize", () => applyPredView());
+  }
+
+  function bindPredPanel() {
+    if (predToggleBtn) {
+      predToggleBtn.addEventListener("click", async () => {
+        predExpanded = !predExpanded;
+
+        const base = applyFiltersBase(allRows).map(enrichRow);
+
+        if (predExpanded) {
+          showEl(predPanel);
+          predToggleBtn.setAttribute("aria-expanded", "true");
+          setPredButtonsLoading(false, "toggle");
+
+          const currentHash = getBaseHash(base);
+          const stale = !predComputedHash || predComputedHash !== currentHash;
+
+          if (stale) await computePredictionOnDemand(base);
+          else applyPredView();
+        } else {
+          hideEl(predPanel);
+          predToggleBtn.setAttribute("aria-expanded", "false");
+          setPredButtonsLoading(false, "toggle");
+          hideEl(predMoreBtn);
+          if (predFade) predFade.classList.add("hidden");
+        }
+
+        updatePredUIState(base);
+      });
+    }
+
+    if (predRecalcBtn) {
+      predRecalcBtn.addEventListener("click", async () => {
+        const base = applyFiltersBase(allRows).map(enrichRow);
+        await computePredictionOnDemand(base);
+        updatePredUIState(base);
+      });
+    }
   }
 
   function bindDeleteModal() {
@@ -1718,7 +1918,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let scrollLeft = 0;
 
     tablaWrapper.addEventListener("mousedown", (e) => {
-      // ✅ si el click fue sobre un control, NO iniciar drag
       if (e.target.closest("button, input, select, textarea, label, a")) return;
 
       isDown = true;
@@ -1794,6 +1993,9 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedKeys.clear();
       page = 1;
 
+      const base = applyFiltersBase(allRows).map(enrichRow);
+      lastBaseHash = getBaseHash(base);
+
       render();
 
       setTimeout(() => hideEl(loadingModal), 120);
@@ -1814,6 +2016,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindFab();
   bindLogout();
   bindPredModal();
+  bindPredPanel();
   bindDeleteModal();
   bindDragScroll();
   bindSearchAndSort();

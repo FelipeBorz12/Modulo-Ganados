@@ -29,6 +29,14 @@
     <script src="./tw-config.js"></script>
 
     <style>
+      :root {
+        /* Se actualiza por JS según altura real del header */
+        --app-header-h: 72px;
+        /* Alturas “base” de las filas del thead (para sticky del filtro) */
+        --thead-row1-h: 44px;
+        --thead-row2-h: 56px;
+      }
+
       body {
         font-family: "Inter", sans-serif;
       }
@@ -125,77 +133,81 @@
         }
       }
 
-      /* ✅ Filtros por columna (inputs en el header) */
+      /* ✅ Filtros por columna (fila 2 del thead) */
       .th-filter {
-        padding: 0.4rem 0.75rem;
-      }
-      .th-filter input {
-        width: 100%;
-        min-width: 10rem;
+        padding: 0.35rem 0.5rem;
+        vertical-align: top;
+        overflow: visible;
       }
 
-      /* ==========================================================
-         ✅ TABLA PRO: sticky header + sticky filtros + separadores
-         ========================================================== */
-
-      /* Para que se vean bien los bordes verticales (separadores) */
-      #tabla {
-        border-collapse: separate;
-        border-spacing: 0;
+      /* ✅ Contenedor del filtro (lupa -> input) */
+      .colf-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
       }
 
-      /* Altura aproximada del header + filtros (para sticky de 2 filas).
-         No reduce fuente; solo hace que el sticky funcione estable. */
-      :root {
-        --thead-row-1-top: 0px;
-        --thead-row-2-top: 44px; /* alto aprox de fila títulos */
+      /* ✅ Botón lupa por columna */
+      .colf-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease;
+      }
+      .colf-btn:hover {
+        background: rgba(148, 163, 184, 0.25);
+      }
+      .dark .colf-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
       }
 
-      /* Sticky fila 1 (títulos) */
-      #tabla thead tr.sticky-1 th {
+      /* ✅ Input uniforme para todos los filtros (misma medida) */
+      .colf-input {
+        width: 12.5rem; /* tamaño igual para todos */
+        height: 36px;
+        border-radius: 12px;
+        padding: 0 0.75rem;
+        outline: none;
+      }
+
+      /* ✅ Sticky THEAD (NO se tapa con navbar) */
+      #tabla thead tr.head-row th {
         position: sticky;
-        top: var(--thead-row-1-top);
-        z-index: 40;
-        /* asegura fondo sólido */
-        background: rgba(249, 250, 251, 0.98); /* gray-50 */
-        backdrop-filter: blur(6px);
+        top: var(--app-header-h);
+        z-index: 30;
       }
-      .dark #tabla thead tr.sticky-1 th {
-        background: rgba(35, 34, 53, 0.98); /* tu dark header */
-      }
-
-      /* Sticky fila 2 (filtros) */
-      #tabla thead tr.sticky-2 th {
+      #tabla thead tr.filter-row th {
         position: sticky;
-        top: var(--thead-row-2-top);
-        z-index: 35;
-        background: rgba(249, 250, 251, 0.98);
-        backdrop-filter: blur(6px);
-      }
-      .dark #tabla thead tr.sticky-2 th {
-        background: rgba(35, 34, 53, 0.98);
+        top: calc(var(--app-header-h) + var(--thead-row1-h));
+        z-index: 25;
       }
 
-      /* Un borde inferior cuando el header está pegado (se siente "fijo") */
-      #tabla thead tr.sticky-1 th,
-      #tabla thead tr.sticky-2 th {
-        border-bottom: 1px solid rgba(229, 231, 235, 0.9); /* gray-200 */
+      /* Asegura fondo sólido para sticky */
+      #tabla thead tr.head-row {
+        background: #f8fafc; /* gray-50 */
       }
-      .dark #tabla thead tr.sticky-1 th,
-      .dark #tabla thead tr.sticky-2 th {
-        border-bottom: 1px solid rgba(31, 41, 55, 0.9); /* gray-800 */
+      .dark #tabla thead tr.head-row {
+        background: #232235;
       }
-
-      /* Ajuste de padding en columnas numéricas sin cambiar font-size:
-         se logra en JS por clases, pero dejamos una base coherente */
-      .td-tight {
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+      #tabla thead tr.filter-row {
+        background: #f8fafc;
+      }
+      .dark #tabla thead tr.filter-row {
+        background: #232235;
       }
 
-      /* Para que el sticky NO "salte" al hacer scroll en algunos navegadores */
-      #tabla thead th {
-        transform: translateZ(0);
+      /* ✅ separadores verticales */
+      #tabla th:not(:first-child),
+      #tabla td:not(:first-child) {
+        border-left: 1px solid rgba(226, 232, 240, 0.9);
+      }
+      .dark #tabla th:not(:first-child),
+      .dark #tabla td:not(:first-child) {
+        border-left: 1px solid rgba(55, 65, 81, 0.9);
       }
     </style>
 
@@ -243,6 +255,7 @@
     <div id="page-top" class="min-h-screen flex flex-col">
       <!-- Header -->
       <header
+        id="app-header"
         class="sticky top-0 z-40 border-b border-gray-200/80 dark:border-gray-800 bg-white/90 dark:bg-[#1a1926]/90 backdrop-blur px-4 md:px-10 py-3"
       >
         <div class="w-full flex items-center justify-between gap-4">
@@ -378,75 +391,102 @@
             </div>
           </section>
 
-          <!-- ✅ TOTALES -->
+          <!-- ✅ TOTALES (más compactos + incluye total compra ingresos) -->
           <section
-            class="grid grid-no-stretch gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+            class="grid grid-no-stretch gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
           >
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 Registros (contexto)
               </p>
               <p
                 id="total-general"
-                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.5rem,3vw,2.1rem)]"
+                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.35rem,2.6vw,1.95rem)]"
               >
                 0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 Ingresos (filtrados)
               </p>
               <p
                 id="total-ingresos"
-                class="mt-2 font-black tracking-tight kpi-number text-emerald-600 text-[clamp(1.5rem,3vw,2.1rem)]"
+                class="mt-2 font-black tracking-tight kpi-number text-emerald-600 text-[clamp(1.35rem,2.6vw,1.95rem)]"
               >
                 0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 Salidas (filtradas)
               </p>
               <p
                 id="total-salidas"
-                class="mt-2 font-black tracking-tight kpi-number text-rose-500 text-[clamp(1.5rem,3vw,2.1rem)]"
+                class="mt-2 font-black tracking-tight kpi-number text-rose-500 text-[clamp(1.35rem,2.6vw,1.95rem)]"
               >
                 0
               </p>
             </div>
 
+            <!-- ✅ NUEVO: total compra ingresos (sin salida) -->
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Total compra (salidas)
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
+                Total compra (ingresos)
               </p>
               <p
-                id="total-valor-ingreso"
-                class="mt-2 font-black tracking-tight kpi-number text-primary text-[clamp(1.1rem,2.6vw,1.95rem)]"
+                id="total-valor-compra-ingresos"
+                class="mt-2 font-black tracking-tight kpi-number text-sky-600 text-[clamp(1.05rem,2.2vw,1.55rem)]"
               >
                 $0
               </p>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
+                Total compra (salidas)
+              </p>
+              <p
+                id="total-valor-compra-salidas"
+                class="mt-2 font-black tracking-tight kpi-number text-primary text-[clamp(1.05rem,2.2vw,1.55rem)]"
+              >
+                $0
+              </p>
+            </div>
+
+            <div
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-3"
+            >
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 Total venta (salidas)
               </p>
               <p
-                id="total-valor-salida"
-                class="mt-2 font-black tracking-tight kpi-number text-fuchsia-600 text-[clamp(1.1rem,2.6vw,1.95rem)]"
+                id="total-valor-venta-salidas"
+                class="mt-2 font-black tracking-tight kpi-number text-fuchsia-600 text-[clamp(1.05rem,2.2vw,1.55rem)]"
               >
                 $0
               </p>
@@ -454,18 +494,18 @@
           </section>
 
           <!-- Utilidad -->
-          <section
-            class="grid grid-no-stretch gap-4 grid-cols-1 md:grid-cols-2"
-          >
+          <section class="grid grid-no-stretch gap-3 grid-cols-1 md:grid-cols-2">
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 Utilidad total (salidas)
               </p>
               <p
                 id="total-utilidad"
-                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.15rem,2.6vw,2.0rem)]"
+                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.05rem,2.2vw,1.7rem)]"
               >
                 $0
               </p>
@@ -476,14 +516,16 @@
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              <p
+                class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+              >
                 % utilidad (margen)
               </p>
               <p
                 id="total-utilidad-pct"
-                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.15rem,2.6vw,2.0rem)]"
+                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.05rem,2.2vw,1.7rem)]"
               >
                 -
               </p>
@@ -493,130 +535,271 @@
             </div>
           </section>
 
-          <!-- ESTADÍSTICAS -->
+          <!-- ✅ ESTADÍSTICAS -->
           <section
-            class="grid grid-no-stretch gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+            class="bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
           >
-            <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
-            >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Peso promedio ingreso
-              </p>
-              <p
-                id="stat-peso-ing"
-                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.15rem,2.6vw,1.6rem)]"
-              >
-                -
-              </p>
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >query_stats</span
+                  >
+                </span>
+                <div class="leading-tight">
+                  <p class="font-extrabold">Estadísticas rápidas</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Resumen compacto (calculado sobre salidas dentro del filtro)
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
+              class="mt-4 grid grid-no-stretch gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Peso promedio salida
-              </p>
-              <p
-                id="stat-peso-sal"
-                class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.15rem,2.6vw,1.6rem)]"
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
               >
-                -
-              </p>
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Peso prom. ingreso
+                </p>
+                <p
+                  id="stat-peso-ing"
+                  class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Peso prom. salida
+                </p>
+                <p
+                  id="stat-peso-sal"
+                  class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Ganancia prom. kg
+                </p>
+                <p
+                  id="stat-peso-ganancia"
+                  class="mt-2 font-black tracking-tight kpi-number text-emerald-600 text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Días prom.
+                </p>
+                <p
+                  id="stat-dias-prom"
+                  class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Compra prom. /kg
+                </p>
+                <p
+                  id="stat-valor-ing"
+                  class="mt-2 font-black tracking-tight kpi-number text-primary text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Venta prom. /kg
+                </p>
+                <p
+                  id="stat-valor-sal"
+                  class="mt-2 font-black tracking-tight kpi-number text-fuchsia-500 text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
             </div>
 
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
+              class="mt-3 grid grid-no-stretch gap-3 grid-cols-1 md:grid-cols-3"
             >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Ganancia promedio de peso
-              </p>
-              <p
-                id="stat-peso-ganancia"
-                class="mt-2 font-black tracking-tight kpi-number text-emerald-600 text-[clamp(1.15rem,2.6vw,1.6rem)]"
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
               >
-                -
-              </p>
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Utilidad prom. /animal
+                </p>
+                <p
+                  id="stat-utilidad-prom"
+                  class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Utilidad prom. /día
+                </p>
+                <p
+                  id="stat-utilidad-dia"
+                  class="mt-2 font-black tracking-tight kpi-number text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
+
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 dark:border-gray-800 p-3"
+              >
+                <p
+                  class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
+                >
+                  Kg prom. /día
+                </p>
+                <p
+                  id="stat-kg-dia"
+                  class="mt-2 font-black tracking-tight kpi-number text-emerald-600 text-[clamp(1.0rem,2.2vw,1.35rem)]"
+                >
+                  -
+                </p>
+              </div>
             </div>
           </section>
 
-          <section
-            class="grid grid-no-stretch gap-4 grid-cols-1 lg:grid-cols-2"
-          >
-            <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
-            >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Valor promedio compra (por kg)
-              </p>
-              <p
-                id="stat-valor-ing"
-                class="mt-2 font-black tracking-tight kpi-number text-primary text-[clamp(1.25rem,3vw,2.1rem)]"
-              >
-                -
-              </p>
-            </div>
-
-            <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
-            >
-              <p class="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                Valor promedio venta (por kg)
-              </p>
-              <p
-                id="stat-valor-sal"
-                class="mt-2 font-black tracking-tight kpi-number text-fuchsia-500 text-[clamp(1.25rem,3vw,2.1rem)]"
-              >
-                -
-              </p>
-            </div>
-          </section>
-
-          <!-- ✅ PREDICCIÓN SIEMPRE FULL WIDTH -->
+          <!-- ✅ PREDICCIONES -->
           <section class="grid grid-no-stretch gap-4 grid-cols-1">
             <div
-              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-5"
+              class="min-w-0 bg-white dark:bg-surface-dark rounded-2xl border border-gray-200/80 dark:border-gray-800 shadow-sm p-4"
             >
               <div class="flex items-start justify-between gap-3">
-                <div>
+                <div class="min-w-0">
                   <p
-                    class="text-xs font-semibold text-gray-500 dark:text-gray-400"
+                    class="text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-wide"
                   >
-                    Predicción simple
+                    Predicciones
                   </p>
                   <h3
                     class="mt-1 text-lg md:text-xl font-extrabold tracking-tight"
                   >
-                    Sugerencia basada en tu histórico
+                    Sugerencias basadas en tu histórico
                   </h3>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Solo se calcula cuando lo pides (para no cargar el dashboard).
+                  </p>
                 </div>
 
-                <!-- botón solo visible en móvil -->
-                <button
-                  id="pred-more-btn"
-                  type="button"
-                  class="md:hidden inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
-                >
-                  <span class="material-symbols-outlined text-[18px]"
-                    >open_in_full</span
+                <div class="flex items-center gap-2">
+                  <button
+                    id="pred-toggle-btn"
+                    type="button"
+                    class="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:opacity-95 active:scale-[0.99] transition"
+                    aria-expanded="false"
                   >
-                  Ver más
-                </button>
+                    <span class="material-symbols-outlined text-[18px]"
+                      >expand_more</span
+                    >
+                    Ver predicciones
+                  </button>
+
+                  <button
+                    id="pred-more-btn"
+                    type="button"
+                    class="md:hidden hidden inline-flex items-center justify-center gap-2 rounded-full bg-white dark:bg-[#2c2b3b] px-4 py-2 text-sm font-extrabold text-gray-800 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                  >
+                    <span class="material-symbols-outlined text-[18px]"
+                      >open_in_full</span
+                    >
+                    Ver más
+                  </button>
+                </div>
               </div>
 
-              <div
-                id="stat-prediccion"
-                class="mt-3 text-sm md:text-base text-gray-700 dark:text-gray-200 leading-relaxed"
-              >
-                -
+              <div id="pred-panel" class="mt-4 hidden">
+                <div
+                  id="pred-stale-bar"
+                  class="hidden mb-3 rounded-xl border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-900/10 p-3"
+                >
+                  <div
+                    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                  >
+                    <p
+                      class="text-xs font-semibold text-amber-900 dark:text-amber-100"
+                    >
+                      Predicción desactualizada por cambios en filtros. Recalcula cuando quieras.
+                    </p>
+                    <button
+                      id="pred-recalc-btn"
+                      type="button"
+                      class="inline-flex items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-extrabold text-white hover:opacity-95 transition"
+                    >
+                      <span class="material-symbols-outlined text-[18px]"
+                        >refresh</span
+                      >
+                      Recalcular
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  id="stat-prediccion"
+                  class="text-sm md:text-base text-gray-700 dark:text-gray-200 leading-relaxed"
+                >
+                  <span class="text-gray-500 dark:text-gray-400"
+                    >Pulsa <strong>“Ver predicciones”</strong> para calcular.</span
+                  >
+                </div>
+
+                <div id="pred-fade" class="md:hidden mt-0 fade-bottom hidden"></div>
+
+                <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                  Tip: si cambian los precios (compra/venta), filtra por fechas
+                  recientes; la recomendación puede moverse.
+                </p>
               </div>
-
-              <div id="pred-fade" class="md:hidden mt-0 fade-bottom"></div>
-
-              <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                Tip: si cambian los precios (compra/venta), filtra por fechas
-                recientes; la recomendación puede moverse.
-              </p>
             </div>
           </section>
 
@@ -627,7 +810,6 @@
             <div
               class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
             >
-              <!-- Tabs -->
               <div class="flex items-center gap-3">
                 <div
                   class="inline-flex rounded-full overflow-hidden bg-gray-100 dark:bg-[#2c2b3b] p-1 ring-1 ring-inset ring-gray-200 dark:ring-gray-700"
@@ -656,7 +838,6 @@
                 </p>
               </div>
 
-              <!-- Acciones -->
               <div class="flex flex-wrap items-center gap-2">
                 <button
                   id="btn-actualizar"
@@ -767,9 +948,7 @@
                     <option value="fecha_ing_asc">Fecha ingreso (↑)</option>
                     <option value="peso_desc">Peso ingreso (↓)</option>
                     <option value="peso_asc">Peso ingreso (↑)</option>
-                    <option value="utilidad_desc">
-                      Utilidad (↓) [salidas]
-                    </option>
+                    <option value="utilidad_desc">Utilidad (↓) [salidas]</option>
                     <option value="utilidad_asc">Utilidad (↑) [salidas]</option>
                     <option value="dias_desc">Días (↓) [salidas]</option>
                     <option value="dias_asc">Días (↑) [salidas]</option>
@@ -849,9 +1028,7 @@
                   type="button"
                   class="inline-flex items-center justify-center gap-2 rounded-full h-10 px-4 bg-white dark:bg-[#2c2b3b] ring-1 ring-inset ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-sm font-semibold"
                 >
-                  <span class="material-symbols-outlined text-[18px]"
-                    >close</span
-                  >
+                  <span class="material-symbols-outlined text-[18px]">close</span>
                   Limpiar
                 </button>
               </div>
@@ -870,9 +1047,7 @@
                 <span
                   class="inline-flex items-center justify-center size-10 rounded-full bg-primary/10 text-primary"
                 >
-                  <span class="material-symbols-outlined text-[20px]"
-                    >filter_list</span
-                  >
+                  <span class="material-symbols-outlined text-[20px]">filter_list</span>
                 </span>
                 <div class="leading-tight">
                   <p class="font-extrabold">Filtro de tabla</p>
@@ -944,12 +1119,12 @@
           <section class="w-full">
             <div
               id="tabla-wrapper"
-              class="drag-scroll overflow-x-auto overflow-y-visible bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200/80 dark:border-gray-800"
+              class="drag-scroll overflow-x-auto bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200/80 dark:border-gray-800"
               title="Arrastra horizontalmente con click sostenido"
             >
               <table
                 id="tabla"
-                class="min-w-[1500px] w-full table-fixed text-sm md:text-base divide-y divide-gray-200 dark:divide-gray-800"
+                class="min-w-[1700px] w-full text-sm md:text-base divide-y divide-gray-200 dark:divide-gray-800"
               >
                 <thead id="tabla-head"></thead>
                 <tbody
@@ -1265,49 +1440,6 @@
       class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
     >
       <div
-        class="bg-white dark:bg-surface-dark rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4 border border-gray-200/80 dark:border-gray-800"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="size-10 rounded-full bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 flex items-center justify-center"
-          >
-            <span class="material-symbols-outlined">delete</span>
-          </div>
-          <div class="min-w-0">
-            <h3 class="text-lg font-extrabold">Eliminar registro</h3>
-            <p
-              id="delete-modal-sub"
-              class="text-sm text-gray-600 dark:text-gray-300"
-            >
-              ¿Seguro que deseas eliminar este registro?
-            </p>
-          </div>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-2">
-          <button
-            id="delete-cancel"
-            type="button"
-            class="px-4 py-2 text-sm rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#2c2b3b] hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            id="delete-confirm"
-            type="button"
-            class="px-4 py-2 text-sm rounded-full bg-rose-600 text-white font-extrabold hover:bg-rose-700 transition"
-          >
-            Eliminar
-          </button>
-        </div>
-      </div>
-    </div>
-    <!-- ✅ MODAL CONFIRMAR BORRADO (ADVERTENCIA) -->
-    <div
-      id="delete-modal"
-      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4"
-    >
-      <div
         class="bg-white dark:bg-surface-dark rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4 border border-amber-200/80 dark:border-amber-900/40 ring-1 ring-inset ring-amber-200/60 dark:ring-amber-900/30"
         role="dialog"
         aria-modal="true"
@@ -1370,7 +1502,8 @@
         </div>
       </div>
     </div>
-    <!-- ✅ TOAST (mensaje pequeño centrado abajo) -->
+
+    <!-- ✅ TOAST -->
     <div
       id="toast"
       class="fixed left-1/2 -translate-x-1/2 bottom-5 z-[70] hidden px-4"
