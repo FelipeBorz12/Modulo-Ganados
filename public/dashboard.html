@@ -35,6 +35,12 @@
         /* Alturas “base” de las filas del thead (para sticky del filtro) */
         --thead-row1-h: 44px;
         --thead-row2-h: 56px;
+
+        /* ✅ NUEVO: sticky dentro del wrapper (top=0) */
+        --table-sticky-top: 0px;
+
+        /* ✅ NUEVO: alto máximo del área scroll de la tabla (ajústalo si quieres) */
+        --table-max-h: 72vh;
       }
 
       body {
@@ -174,30 +180,10 @@
         outline: none;
       }
 
-      /* ✅ Sticky THEAD (NO se tapa con navbar) */
-      #tabla thead tr.head-row th {
-        position: sticky;
-        top: var(--app-header-h);
-        z-index: 30;
-      }
-      #tabla thead tr.filter-row th {
-        position: sticky;
-        top: calc(var(--app-header-h) + var(--thead-row1-h));
-        z-index: 25;
-      }
-
-      /* Asegura fondo sólido para sticky */
-      #tabla thead tr.head-row {
-        background: #f8fafc; /* gray-50 */
-      }
-      .dark #tabla thead tr.head-row {
-        background: #232235;
-      }
-      #tabla thead tr.filter-row {
-        background: #f8fafc;
-      }
-      .dark #tabla thead tr.filter-row {
-        background: #232235;
+      /* ✅ Recomendado para sticky en tablas: evita glitches */
+      #tabla {
+        border-collapse: separate;
+        border-spacing: 0;
       }
 
       /* ✅ separadores verticales */
@@ -209,10 +195,35 @@
       .dark #tabla td:not(:first-child) {
         border-left: 1px solid rgba(55, 65, 81, 0.9);
       }
-      /* ✅ Recomendado para sticky en tablas: evita glitches */
-      #tabla {
-        border-collapse: separate;
-        border-spacing: 0;
+
+      /* ✅ NUEVO: el wrapper ahora scrollea en Y y X (sticky perfecto) */
+      #tabla-wrapper {
+        position: relative;
+
+        /* antes era overflow-x-auto; ahora es overflow:auto para permitir scroll vertical */
+        overflow: auto;
+
+        /* altura máxima del área scroll (ajústala) */
+        max-height: var(--table-max-h);
+
+        /* ✅ gutter para que los FABs NO tapen columnas ni últimas filas */
+        padding-right: 4.75rem; /* espacio a la derecha */
+        padding-bottom: 5.75rem; /* espacio abajo */
+
+        /* mejora scrolling en móviles */
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* ✅ Sticky THEAD ahora dentro del wrapper: top=0 */
+      #tabla thead tr.head-row th {
+        position: sticky;
+        top: var(--table-sticky-top);
+        z-index: 60;
+      }
+      #tabla thead tr.filter-row th {
+        position: sticky;
+        top: calc(var(--table-sticky-top) + var(--thead-row1-h));
+        z-index: 55;
       }
 
       /* ✅ El sticky necesita fondo en el ELEMENTO sticky (th), no solo en el tr */
@@ -220,45 +231,24 @@
       #tabla thead tr.filter-row th {
         background: #f8fafc; /* gray-50 */
       }
-
       .dark #tabla thead tr.head-row th,
       .dark #tabla thead tr.filter-row th {
         background: #232235;
       }
 
-      /* ✅ Más “encima” y con borde abajo para que se note la separación */
+      /* ✅ Borde inferior para separar encabezado y filtros */
       #tabla thead tr.head-row th {
-        z-index: 60;
         border-bottom: 1px solid rgba(226, 232, 240, 0.95);
       }
-
       .dark #tabla thead tr.head-row th {
         border-bottom: 1px solid rgba(55, 65, 81, 0.95);
       }
 
       #tabla thead tr.filter-row th {
-        z-index: 55;
         border-bottom: 1px solid rgba(226, 232, 240, 0.75);
       }
-
       .dark #tabla thead tr.filter-row th {
         border-bottom: 1px solid rgba(55, 65, 81, 0.75);
-      }
-
-      /* ✅ Para que z-index del sticky se respete bien */
-      #tabla-wrapper {
-        position: relative;
-      }
-
-      /* (Tu sticky ya existe, pero lo dejamos así) */
-      #tabla thead tr.head-row th {
-        position: sticky;
-        top: var(--app-header-h);
-      }
-
-      #tabla thead tr.filter-row th {
-        position: sticky;
-        top: calc(var(--app-header-h) + var(--thead-row1-h));
       }
     </style>
 
@@ -1184,8 +1174,8 @@
           <section class="w-full">
             <div
               id="tabla-wrapper"
-              class="drag-scroll overflow-x-auto bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200/80 dark:border-gray-800"
-              title="Arrastra horizontalmente con click sostenido"
+              class="drag-scroll bg-white dark:bg-surface-dark rounded-lg shadow-sm border border-gray-200/80 dark:border-gray-800"
+              title="Arrastra horizontalmente con click sostenido (y scrollea vertical dentro de la tabla)"
             >
               <table
                 id="tabla"
