@@ -1,6 +1,6 @@
 // public/g-sw.js
 
-const VERSION = "2026-01-08-12";
+const VERSION = "2026-01-08-13";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
