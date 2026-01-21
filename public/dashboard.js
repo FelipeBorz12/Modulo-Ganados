@@ -37,7 +37,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function syncTableStickyTopVar() {
     const headerH = appHeader ? appHeader.offsetHeight : 72;
 
-    let topPx = headerH;
+    // default: sin offset (thead pegado arriba)
+    let topPx = 0;
+
+    // 1) Si el header es FIXED, entonces sí hay que bajar el thead
+    if (appHeader) {
+      const pos = getComputedStyle(appHeader).position;
+      const isFixed = pos === "fixed";
+      if (isFixed) topPx = headerH;
+    }
 
     if (tablaWrapper) {
       const cs = getComputedStyle(tablaWrapper);
@@ -46,13 +54,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const wrapperCanScrollY =
         overflowY !== "visible" &&
         overflowY !== "clip" &&
-        (tablaWrapper.scrollHeight - tablaWrapper.clientHeight > 2);
+        tablaWrapper.scrollHeight - tablaWrapper.clientHeight > 2;
 
-      // Si el wrapper tiene scroll vertical real, sticky se pega al top del wrapper
       if (wrapperCanScrollY) topPx = 0;
     }
 
-    document.documentElement.style.setProperty("--table-sticky-top", `${topPx}px`);
+    document.documentElement.style.setProperty(
+      "--table-sticky-top",
+      `${topPx}px`,
+    );
   }
 
   function syncTheadHeights() {
@@ -470,16 +480,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (key === "fecha_ing_asc")
         return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
 
-      if (key === "peso_desc") return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
-      if (key === "peso_asc") return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
+      if (key === "peso_desc")
+        return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
+      if (key === "peso_asc")
+        return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
 
       if (key === "utilidad_desc")
         return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
       if (key === "utilidad_asc")
         return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
 
-      if (key === "dias_desc") return (Number(b.dias) || 0) - (Number(a.dias) || 0);
-      if (key === "dias_asc") return (Number(a.dias) || 0) - (Number(b.dias) || 0);
+      if (key === "dias_desc")
+        return (Number(b.dias) || 0) - (Number(a.dias) || 0);
+      if (key === "dias_asc")
+        return (Number(a.dias) || 0) - (Number(b.dias) || 0);
 
       return 0;
     });
@@ -836,9 +850,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (u !== null) {
       parts.push(
-        `• Utilidad promedio por animal: <strong>${nw(
-          fmtMoney(u),
-        )}</strong>` +
+        `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
           (margenPct === null
             ? ""
             : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`),
@@ -857,9 +869,7 @@ document.addEventListener("DOMContentLoaded", () => {
         )}</strong>` +
           (kgDia === null
             ? ""
-            : ` (~<strong>${nw(
-                kgDia.toFixed(2) + " kg/día",
-              )}</strong>)`),
+            : ` (~<strong>${nw(kgDia.toFixed(2) + " kg/día")}</strong>)`),
       );
     }
 
@@ -1023,7 +1033,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const sortedView = applySort(colFiltered);
 
     const size = pageSize === Infinity ? sortedView.length : pageSize;
-    const maxPage = Math.max(1, Math.ceil(sortedView.length / Math.max(1, size)));
+    const maxPage = Math.max(
+      1,
+      Math.ceil(sortedView.length / Math.max(1, size)),
+    );
     if (page > maxPage) page = maxPage;
 
     const startIdx = (page - 1) * size;
@@ -1059,7 +1072,8 @@ document.addEventListener("DOMContentLoaded", () => {
       0,
     );
     const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
-    const margen = sumCompraSalidas > 0 ? (sumUtil / sumCompraSalidas) * 100 : null;
+    const margen =
+      sumCompraSalidas > 0 ? (sumUtil / sumCompraSalidas) * 100 : null;
 
     if (elTotalGeneral)
       elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
@@ -1077,7 +1091,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
     if (elTotalUtilidadPct)
-      elTotalUtilidadPct.textContent = margen === null ? "-" : `${margen.toFixed(2)}%`;
+      elTotalUtilidadPct.textContent =
+        margen === null ? "-" : `${margen.toFixed(2)}%`;
   }
 
   function renderStats(baseRows) {
@@ -1131,8 +1146,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elStatDiasProm)
       elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
 
-    if (elStatValorIng) elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
-    if (elStatValorSal) elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
+    if (elStatValorIng)
+      elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
+    if (elStatValorSal)
+      elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
 
     if (elStatUtilProm) {
       if (u === null) elStatUtilProm.textContent = "-";
@@ -1182,7 +1199,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateSelectionInfo(viewRowsAll) {
-    const selectedInView = viewRowsAll.filter((r) => selectedKeys.has(rowKey(r))).length;
+    const selectedInView = viewRowsAll.filter((r) =>
+      selectedKeys.has(rowKey(r)),
+    ).length;
     const msg = selectedKeys.size
       ? `Seleccionados: ${selectedKeys.size.toLocaleString(
           "es-CO",
@@ -1219,7 +1238,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     toastText.textContent = message;
 
-    toastBox.classList.remove("bg-black/80", "bg-emerald-600/90", "bg-rose-600/90");
+    toastBox.classList.remove(
+      "bg-black/80",
+      "bg-emerald-600/90",
+      "bg-rose-600/90",
+    );
     if (variant === "success") toastBox.classList.add("bg-emerald-600/90");
     else if (variant === "error") toastBox.classList.add("bg-rose-600/90");
     else toastBox.classList.add("bg-black/80");
@@ -1482,7 +1505,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Body
     tablaBody.innerHTML = "";
 
-    const rightCols = new Set(["Peso", "_pesoIng", "_pesoSal", "gananciaKg", "dias"]);
+    const rightCols = new Set([
+      "Peso",
+      "_pesoIng",
+      "_pesoSal",
+      "gananciaKg",
+      "dias",
+    ]);
     const moneyCols = new Set([
       "ValorKGingreso",
       "totalIngreso",
@@ -1532,7 +1561,8 @@ document.addEventListener("DOMContentLoaded", () => {
           btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">delete</span> Borrar`;
           btn.addEventListener("click", () => {
             const numero = r?.Numero ?? "";
-            if (!numero) return alert("No se pudo identificar el Número para borrar.");
+            if (!numero)
+              return alert("No se pudo identificar el Número para borrar.");
             openDeleteModal(numero);
           });
           td.appendChild(btn);
@@ -1568,7 +1598,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let v = r[c.key];
 
-        if (c.key === "Finca") v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
+        if (c.key === "Finca")
+          v = r.FincaIndicativo ?? r.FincaNombre ?? r.Finca ?? "";
 
         if (c.key === "FechaIngreso" || c.key === "FechaSalida") {
           const d = parseISODate(v);
@@ -1580,7 +1611,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (rightCols.has(c.key)) {
           td.classList.add("text-right", "tabular-nums");
           td.textContent =
-            v === null || v === undefined ? "-" : fmtNum(v, c.key === "dias" ? 0 : 1);
+            v === null || v === undefined
+              ? "-"
+              : fmtNum(v, c.key === "dias" ? 0 : 1);
           tr.appendChild(td);
           return;
         }
@@ -1611,7 +1644,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ✅ recalcula offsets y alturas del sticky SIN crear “espacio arriba”
     requestAnimationFrame(() => {
-      syncAllStickyVars();
+      requestAnimationFrame(() => {
+        syncAllStickyVars();
+      });
     });
   }
 
@@ -1695,19 +1730,31 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNextBottom && pageNextBottom.addEventListener("click", next);
 
     // ✅ Usa los presets dinámicos (sin depender de 100/200/300 fijos)
-    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(pagerChoices[0]));
-    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(pagerChoices[1]));
-    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(pagerChoices[2]));
-    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(pagerChoices[3]));
+    pageSize100Top &&
+      pageSize100Top.addEventListener("click", () => setSize(pagerChoices[0]));
+    pageSize200Top &&
+      pageSize200Top.addEventListener("click", () => setSize(pagerChoices[1]));
+    pageSize300Top &&
+      pageSize300Top.addEventListener("click", () => setSize(pagerChoices[2]));
+    pageSizeAllTop &&
+      pageSizeAllTop.addEventListener("click", () => setSize(pagerChoices[3]));
 
     pageSize100Bottom &&
-      pageSize100Bottom.addEventListener("click", () => setSize(pagerChoices[0]));
+      pageSize100Bottom.addEventListener("click", () =>
+        setSize(pagerChoices[0]),
+      );
     pageSize200Bottom &&
-      pageSize200Bottom.addEventListener("click", () => setSize(pagerChoices[1]));
+      pageSize200Bottom.addEventListener("click", () =>
+        setSize(pagerChoices[1]),
+      );
     pageSize300Bottom &&
-      pageSize300Bottom.addEventListener("click", () => setSize(pagerChoices[2]));
+      pageSize300Bottom.addEventListener("click", () =>
+        setSize(pagerChoices[2]),
+      );
     pageSizeAllBottom &&
-      pageSizeAllBottom.addEventListener("click", () => setSize(pagerChoices[3]));
+      pageSizeAllBottom.addEventListener("click", () =>
+        setSize(pagerChoices[3]),
+      );
 
     // Si el preset actual no incluye el pageSize inicial, lo ajustamos
     const finite = pagerChoices.filter((x) => x !== Infinity);
@@ -1734,9 +1781,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     allBtns.forEach(([btn, val]) => {
       if (!btn) return;
-      btn.classList.remove("bg-white", "dark:bg-[#1a1926]", "text-primary", "shadow-sm");
+      btn.classList.remove(
+        "bg-white",
+        "dark:bg-[#1a1926]",
+        "text-primary",
+        "shadow-sm",
+      );
       if (pageSize === val)
-        btn.className = btn.className + " bg-white dark:bg-[#1a1926] text-primary shadow-sm";
+        btn.className =
+          btn.className + " bg-white dark:bg-[#1a1926] text-primary shadow-sm";
     });
   }
 
@@ -1818,10 +1871,14 @@ document.addEventListener("DOMContentLoaded", () => {
       render();
     };
 
-    rangePrevTop && rangePrevTop.addEventListener("click", () => shiftRange(-1));
-    rangePrevBottom && rangePrevBottom.addEventListener("click", () => shiftRange(-1));
-    rangeNextTop && rangeNextTop.addEventListener("click", () => shiftRange(+1));
-    rangeNextBottom && rangeNextBottom.addEventListener("click", () => shiftRange(+1));
+    rangePrevTop &&
+      rangePrevTop.addEventListener("click", () => shiftRange(-1));
+    rangePrevBottom &&
+      rangePrevBottom.addEventListener("click", () => shiftRange(-1));
+    rangeNextTop &&
+      rangeNextTop.addEventListener("click", () => shiftRange(+1));
+    rangeNextBottom &&
+      rangeNextBottom.addEventListener("click", () => shiftRange(+1));
 
     rangeClearTop && rangeClearTop.addEventListener("click", clearRange);
     rangeClearBottom && rangeClearBottom.addEventListener("click", clearRange);
@@ -1850,7 +1907,9 @@ document.addEventListener("DOMContentLoaded", () => {
         let suffix = `FILTRO_${viewMode}`;
 
         if (selectedKeys.size > 0) {
-          const selectedInView = rowsForExport.filter((r) => selectedKeys.has(rowKey(r)));
+          const selectedInView = rowsForExport.filter((r) =>
+            selectedKeys.has(rowKey(r)),
+          );
           if (!selectedInView.length) {
             return alert(
               "Tienes registros seleccionados, pero ninguno está dentro de la vista/filtros actuales.\n\n" +
@@ -1862,7 +1921,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (!rowsToExport.length) {
-          return alert("No hay datos para exportar con la vista/filtros actuales.");
+          return alert(
+            "No hay datos para exportar con la vista/filtros actuales.",
+          );
         }
 
         exportXLSX(
@@ -1874,10 +1935,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function bindFab() {
     fabTop &&
-      fabTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+      fabTop.addEventListener("click", () =>
+        window.scrollTo({ top: 0, behavior: "smooth" }),
+      );
     fabBottom &&
       fabBottom.addEventListener("click", () =>
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }),
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        }),
       );
   }
 
@@ -1887,7 +1953,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnLogout && btnLogout.addEventListener("click", open);
     logoutCancel && logoutCancel.addEventListener("click", close);
-    logoutConfirm && logoutConfirm.addEventListener("click", async () => await doLogout());
+    logoutConfirm &&
+      logoutConfirm.addEventListener("click", async () => await doLogout());
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") close();
@@ -1968,7 +2035,9 @@ document.addEventListener("DOMContentLoaded", () => {
           deleteConfirm.disabled = true;
           await deleteByNumero(numero);
 
-          allRows = allRows.filter((r) => String(r?.Numero ?? "") !== String(numero));
+          allRows = allRows.filter(
+            (r) => String(r?.Numero ?? "") !== String(numero),
+          );
 
           closeDeleteModal();
           page = 1;
