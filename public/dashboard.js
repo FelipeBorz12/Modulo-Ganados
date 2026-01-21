@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // - Export: Todo (siempre) + Inteligente (filtros + selección)
   // - ✅ THEAD sticky SIN solapes y con offset correcto según tipo de scroll
   // - ✅ Ajuste automático de top sticky para evitar “espacio en blanco”
+  // - ✅ FIX: Ingresos = SIN FechaSalida | Salidas = CON FechaSalida
+  // - ✅ FIX: Paginación adaptativa (móvil: 25/50/100/Todos | desktop: 100/200/300/Todos)
   // ==============================
 
   // ---------- helpers DOM ----------
@@ -202,7 +204,68 @@ document.addEventListener("DOMContentLoaded", () => {
   let viewMode = "ingreso"; // "ingreso" | "salida"
 
   let page = 1;
-  let pageSize = 100; // 100|200|300|Infinity
+  let pageSize = 100; // dinámico según preset
+
+  // ✅ Paginación adaptativa (sin tocar el HTML)
+  const computePagerChoices = () => {
+    const isSmall = window.matchMedia("(max-width: 767px)").matches;
+    // móvil: más razonable para pantallas angostas
+    return isSmall ? [25, 50, 100, Infinity] : [100, 200, 300, Infinity];
+  };
+
+  let pagerChoices = computePagerChoices();
+
+  function setPagerButtonLabels() {
+    const [a, b, c, d] = pagerChoices;
+    const label = (n) => (n === Infinity ? "Todos" : String(n));
+
+    if (pageSize100Top) pageSize100Top.textContent = label(a);
+    if (pageSize200Top) pageSize200Top.textContent = label(b);
+    if (pageSize300Top) pageSize300Top.textContent = label(c);
+    if (pageSizeAllTop) pageSizeAllTop.textContent = label(d);
+
+    if (pageSize100Bottom) pageSize100Bottom.textContent = label(a);
+    if (pageSize200Bottom) pageSize200Bottom.textContent = label(b);
+    if (pageSize300Bottom) pageSize300Bottom.textContent = label(c);
+    if (pageSizeAllBottom) pageSizeAllBottom.textContent = label(d);
+  }
+
+  function syncPagerPresetOnResize() {
+    const next = computePagerChoices();
+    const changed =
+      next.length !== pagerChoices.length ||
+      next.some((v, i) => v !== pagerChoices[i]);
+
+    if (!changed) return;
+
+    pagerChoices = next;
+    setPagerButtonLabels();
+
+    // Si el pageSize actual no existe en el preset nuevo, lo re-mapeamos al más cercano
+    if (pageSize !== Infinity) {
+      const onlyFinite = pagerChoices.filter((x) => x !== Infinity);
+      const closest =
+        onlyFinite.reduce((best, cur) => {
+          const db = Math.abs((best ?? cur) - pageSize);
+          const dc = Math.abs(cur - pageSize);
+          return dc < db ? cur : best;
+        }, onlyFinite[0]) ?? pagerChoices[0];
+
+      pageSize = closest;
+      page = 1;
+    }
+
+    render();
+    syncPageSizeButtonsUI();
+  }
+
+  // Aplica labels al iniciar
+  setPagerButtonLabels();
+
+  window.addEventListener("resize", () => {
+    // no lo metas dentro del debounce anterior: esto debe reaccionar rápido
+    syncPagerPresetOnResize();
+  });
 
   // Selección (por id si existe; si no, por Numero)
   const selectedKeys = new Set();
@@ -284,9 +347,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return `num:${r?.Numero ?? ""}`;
   };
 
+  // ✅ FIX: Salida = tiene FechaSalida (SIN exigir peso)
   const hasSalida = (r) => {
-    const ps = Number(r?.PesoSalida) || 0;
-    return !!(r?.FechaSalida && ps > 0);
+    const fs = (r?.FechaSalida ?? "").toString().trim();
+    if (!fs) return false;
+    // si viene algo raro, igual intentamos validar fecha
+    const d = parseISODate(fs);
+    return !!d; // solo "con fecha de salida" válida
   };
 
   const safeText = (v) => (v === null || v === undefined ? "" : String(v));
@@ -313,9 +380,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function deleteByNumero(numero) {
-    const res = await apiFetch(`/api/historicoiys/${encodeURIComponent(numero)}`, {
-      method: "DELETE",
-    });
+    const res = await apiFetch(
+      `/api/historicoiys/${encodeURIComponent(numero)}`,
+      {
+        method: "DELETE",
+      },
+    );
     if (!res.ok && res.status !== 204) {
       const txt = await res.text().catch(() => "");
       throw new Error(txt || "No se pudo eliminar");
@@ -378,9 +448,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return out;
   }
 
+  // ✅ FIX: Ingreso muestra SOLO SIN FechaSalida, Salida SOLO CON FechaSalida
   function applyViewMode(rows) {
     if (viewMode === "salida") return rows.filter(hasSalida);
-    return rows;
+    return rows.filter((r) => !hasSalida(r));
   }
 
   function applySort(rows) {
@@ -394,14 +465,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const copy = [...rows];
 
     copy.sort((a, b) => {
-      if (key === "fecha_ing_desc") return getTime(b.FechaIngreso) - getTime(a.FechaIngreso);
-      if (key === "fecha_ing_asc") return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
+      if (key === "fecha_ing_desc")
+        return getTime(b.FechaIngreso) - getTime(a.FechaIngreso);
+      if (key === "fecha_ing_asc")
+        return getTime(a.FechaIngreso) - getTime(b.FechaIngreso);
 
       if (key === "peso_desc") return (Number(b.Peso) || 0) - (Number(a.Peso) || 0);
       if (key === "peso_asc") return (Number(a.Peso) || 0) - (Number(b.Peso) || 0);
 
-      if (key === "utilidad_desc") return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
-      if (key === "utilidad_asc") return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
+      if (key === "utilidad_desc")
+        return (Number(b.utilidad) || 0) - (Number(a.utilidad) || 0);
+      if (key === "utilidad_asc")
+        return (Number(a.utilidad) || 0) - (Number(b.utilidad) || 0);
 
       if (key === "dias_desc") return (Number(b.dias) || 0) - (Number(a.dias) || 0);
       if (key === "dias_asc") return (Number(a.dias) || 0) - (Number(b.dias) || 0);
@@ -454,7 +529,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function applyColumnFilters(rows, mode) {
     const filters = columnFilters[mode] || {};
-    const activeKeys = Object.keys(filters).filter((k) => (filters[k] ?? "").toString().trim() !== "");
+    const activeKeys = Object.keys(filters).filter(
+      (k) => (filters[k] ?? "").toString().trim() !== "",
+    );
     if (!activeKeys.length) return rows;
 
     const normalized = {};
@@ -565,7 +642,11 @@ document.addEventListener("DOMContentLoaded", () => {
     predLoading = !!isLoading;
 
     const btn =
-      which === "recalc" ? predRecalcBtn : which === "toggle" ? predToggleBtn : null;
+      which === "recalc"
+        ? predRecalcBtn
+        : which === "toggle"
+          ? predToggleBtn
+          : null;
 
     if (!btn) return;
 
@@ -617,14 +698,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function buildPredictionHTML(baseRows) {
     const salidas = baseRows.filter(hasSalida);
 
-    const prom = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const prom = (xs) =>
+      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 
-    const dias = salidas.map((r) => r.dias).filter((v) => Number.isFinite(v) && v >= 0);
-    const utils = salidas.map((r) => r.utilidad).filter((v) => Number.isFinite(v));
+    const dias = salidas
+      .map((r) => r.dias)
+      .filter((v) => Number.isFinite(v) && v >= 0);
+    const utils = salidas
+      .map((r) => r.utilidad)
+      .filter((v) => Number.isFinite(v));
     const ingresos = salidas
       .map((r) => r.totalIngreso)
       .filter((v) => Number.isFinite(v) && v > 0);
-    const ganKg = salidas.map((r) => r.gananciaKg).filter((v) => Number.isFinite(v));
+    const ganKg = salidas
+      .map((r) => r.gananciaKg)
+      .filter((v) => Number.isFinite(v));
 
     const d = prom(dias);
     const u = prom(utils);
@@ -708,18 +796,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     parts.push(`<strong>Resumen (según tu filtro actual)</strong>`);
     parts.push(
-      `• Registros filtrados: <strong>${nw(baseRows.length.toLocaleString("es-CO"))}</strong>`,
+      `• Registros filtrados: <strong>${nw(
+        baseRows.length.toLocaleString("es-CO"),
+      )}</strong>`,
     );
     parts.push(
-      `• Salidas en el filtro: <strong>${nw(salidas.length.toLocaleString("es-CO"))}</strong>`,
+      `• Salidas en el filtro: <strong>${nw(
+        salidas.length.toLocaleString("es-CO"),
+      )}</strong>`,
     );
 
     parts.push(
-      `• Sexo: Machos <strong>${nw(sexCounts.MACHO.toLocaleString("es-CO"))}</strong>, Hembras <strong>${nw(
+      `• Sexo: Machos <strong>${nw(
+        sexCounts.MACHO.toLocaleString("es-CO"),
+      )}</strong>, Hembras <strong>${nw(
         sexCounts.HEMBRA.toLocaleString("es-CO"),
       )}</strong>` +
-        (sexCounts["N/A"] ? `, Sin dato ${nw(sexCounts["N/A"].toLocaleString("es-CO"))}` : "") +
-        (sexCounts.OTRO ? `, Otros ${nw(sexCounts.OTRO.toLocaleString("es-CO"))}` : ""),
+        (sexCounts["N/A"]
+          ? `, Sin dato ${nw(sexCounts["N/A"].toLocaleString("es-CO"))}`
+          : "") +
+        (sexCounts.OTRO
+          ? `, Otros ${nw(sexCounts.OTRO.toLocaleString("es-CO"))}`
+          : ""),
     );
 
     if (!salidas.length) {
@@ -731,23 +829,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (d !== null)
       parts.push(
-        `• Días promedio en finca (salidas): <strong>${nw(d.toFixed(1) + " días")}</strong>`,
+        `• Días promedio en finca (salidas): <strong>${nw(
+          d.toFixed(1) + " días",
+        )}</strong>`,
       );
 
     if (u !== null) {
       parts.push(
-        `• Utilidad promedio por animal: <strong>${nw(fmtMoney(u))}</strong>` +
-          (margenPct === null ? "" : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`),
+        `• Utilidad promedio por animal: <strong>${nw(
+          fmtMoney(u),
+        )}</strong>` +
+          (margenPct === null
+            ? ""
+            : ` (<strong>${nw(margenPct.toFixed(2) + "%")}</strong>)`),
       );
     }
 
     if (uDia !== null)
-      parts.push(`• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`);
+      parts.push(
+        `• Utilidad promedio por día: <strong>${nw(fmtMoney(uDia))}</strong>`,
+      );
 
     if (g !== null) {
       parts.push(
-        `• Ganancia de peso promedio: <strong>${nw(g.toFixed(1) + " kg")}</strong>` +
-          (kgDia === null ? "" : ` (~<strong>${nw(kgDia.toFixed(2) + " kg/día")}</strong>)`),
+        `• Ganancia de peso promedio: <strong>${nw(
+          g.toFixed(1) + " kg",
+        )}</strong>` +
+          (kgDia === null
+            ? ""
+            : ` (~<strong>${nw(
+                kgDia.toFixed(2) + " kg/día",
+              )}</strong>)`),
       );
     }
 
@@ -755,14 +867,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const b = sugGlobal.bestPorDia;
       const c = sugGlobal.bestTotal;
 
-      parts.push(`<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`);
+      parts.push(
+        `<br><strong>Sugerencia de peso de ingreso</strong> (basada en tu histórico, NO es garantía):`,
+      );
       parts.push(
         `• Para <strong>maximizar utilidad por día</strong>: ingresar animales en <strong>${nw(
           `${b.start}-${b.end} kg`,
         )}</strong> fue tu mejor rango (n=${nw(String(b.n))}). ` +
-          `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(b.avgD.toFixed(1) + " días")}</strong> (= ${nw(
-            fmtMoney(b.avgUDia) + "/día",
-          )}).`,
+          `Prom: <strong>${nw(fmtMoney(b.avgU))}</strong> en <strong>${nw(
+            b.avgD.toFixed(1) + " días",
+          )}</strong> (= ${nw(fmtMoney(b.avgUDia) + "/día")}).`,
       );
 
       if (c && c.key !== b.key) {
@@ -770,7 +884,9 @@ document.addEventListener("DOMContentLoaded", () => {
           `• Para <strong>maximizar utilidad total</strong>: el rango <strong>${nw(
             `${c.start}-${c.end} kg`,
           )}</strong> fue el mejor (n=${nw(String(c.n))}). ` +
-            `Prom: <strong>${nw(fmtMoney(c.avgU))}</strong> por animal (margen ~${nw(c.avgMarg.toFixed(2) + "%")}).`,
+            `Prom: <strong>${nw(fmtMoney(c.avgU))}</strong> por animal (margen ~${nw(
+              c.avgMarg.toFixed(2) + "%",
+            )}).`,
         );
       }
     } else {
@@ -783,21 +899,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (sugM?.bestPorDia) {
       const bb = sugM.bestPorDia;
       sexoSugLines.push(
-        `• <strong>Machos</strong>: mejor por día <strong>${nw(`${bb.start}-${bb.end} kg`)}</strong> (n=${nw(
-          String(bb.n),
-        )}).`,
+        `• <strong>Machos</strong>: mejor por día <strong>${nw(
+          `${bb.start}-${bb.end} kg`,
+        )}</strong> (n=${nw(String(bb.n))}).`,
       );
     }
     if (sugH?.bestPorDia) {
       const bb = sugH.bestPorDia;
       sexoSugLines.push(
-        `• <strong>Hembras</strong>: mejor por día <strong>${nw(`${bb.start}-${bb.end} kg`)}</strong> (n=${nw(
-          String(bb.n),
-        )}).`,
+        `• <strong>Hembras</strong>: mejor por día <strong>${nw(
+          `${bb.start}-${bb.end} kg`,
+        )}</strong> (n=${nw(String(bb.n))}).`,
       );
     }
     if (sexoSugLines.length) {
-      parts.push(`<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join("<br>")}`);
+      parts.push(
+        `<br><strong>Rangos por sexo</strong> (si tus datos alcanzan):<br>${sexoSugLines.join(
+          "<br>",
+        )}`,
+      );
     }
 
     return parts.join("<br>");
@@ -876,12 +996,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (btnIngreso) {
-      if (viewMode === "ingreso") btnIngreso.className = btnIngreso.className + " " + on;
+      if (viewMode === "ingreso")
+        btnIngreso.className = btnIngreso.className + " " + on;
       else btnIngreso.className = btnIngreso.className + " " + off;
     }
 
     if (btnSalida) {
-      if (viewMode === "salida") btnSalida.className = btnSalida.className + " " + on;
+      if (viewMode === "salida")
+        btnSalida.className = btnSalida.className + " " + on;
       else btnSalida.className = btnSalida.className + " " + off;
     }
   }
@@ -921,40 +1043,71 @@ document.addEventListener("DOMContentLoaded", () => {
     const ingresosRows = baseRows.filter((r) => !hasSalida(r));
     const totalIngresos = ingresosRows.length;
 
-    const sumCompraIngresos = ingresosRows.reduce((a, r) => a + (Number(r.totalIngreso) || 0), 0);
+    const sumCompraIngresos = ingresosRows.reduce(
+      (a, r) => a + (Number(r.totalIngreso) || 0),
+      0,
+    );
 
     const salidas = baseRows.filter(hasSalida);
 
-    const sumCompraSalidas = salidas.reduce((a, r) => a + (Number(r.totalIngreso) || 0), 0);
-    const sumVentaSalidas = salidas.reduce((a, r) => a + (Number(r.totalSalida) || 0), 0);
+    const sumCompraSalidas = salidas.reduce(
+      (a, r) => a + (Number(r.totalIngreso) || 0),
+      0,
+    );
+    const sumVentaSalidas = salidas.reduce(
+      (a, r) => a + (Number(r.totalSalida) || 0),
+      0,
+    );
     const sumUtil = salidas.reduce((a, r) => a + (Number(r.utilidad) || 0), 0);
     const margen = sumCompraSalidas > 0 ? (sumUtil / sumCompraSalidas) * 100 : null;
 
-    if (elTotalGeneral) elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
-    if (elTotalIngresos) elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
-    if (elTotalSalidas) elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
+    if (elTotalGeneral)
+      elTotalGeneral.textContent = totalContexto.toLocaleString("es-CO");
+    if (elTotalIngresos)
+      elTotalIngresos.textContent = totalIngresos.toLocaleString("es-CO");
+    if (elTotalSalidas)
+      elTotalSalidas.textContent = totalSalidas.toLocaleString("es-CO");
 
-    if (elTotalCompraIngresos) elTotalCompraIngresos.textContent = fmtMoney(sumCompraIngresos);
-    if (elTotalCompraSalidas) elTotalCompraSalidas.textContent = fmtMoney(sumCompraSalidas);
-    if (elTotalVentaSalidas) elTotalVentaSalidas.textContent = fmtMoney(sumVentaSalidas);
+    if (elTotalCompraIngresos)
+      elTotalCompraIngresos.textContent = fmtMoney(sumCompraIngresos);
+    if (elTotalCompraSalidas)
+      elTotalCompraSalidas.textContent = fmtMoney(sumCompraSalidas);
+    if (elTotalVentaSalidas)
+      elTotalVentaSalidas.textContent = fmtMoney(sumVentaSalidas);
 
     if (elTotalUtilidad) elTotalUtilidad.textContent = fmtMoney(sumUtil);
-    if (elTotalUtilidadPct) elTotalUtilidadPct.textContent = margen === null ? "-" : `${margen.toFixed(2)}%`;
+    if (elTotalUtilidadPct)
+      elTotalUtilidadPct.textContent = margen === null ? "-" : `${margen.toFixed(2)}%`;
   }
 
   function renderStats(baseRows) {
     const salidas = baseRows.filter(hasSalida);
 
-    const prom = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+    const prom = (xs) =>
+      xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 
-    const pesosIng = salidas.map((r) => r._pesoIng).filter((v) => Number.isFinite(v) && v > 0);
-    const pesosSal = salidas.map((r) => r._pesoSal).filter((v) => Number.isFinite(v) && v > 0);
-    const ganKg = salidas.map((r) => r.gananciaKg).filter((v) => Number.isFinite(v));
-    const vIng = salidas.map((r) => r._vIng).filter((v) => Number.isFinite(v) && v > 0);
-    const vSal = salidas.map((r) => r._vSal).filter((v) => Number.isFinite(v) && v > 0);
+    const pesosIng = salidas
+      .map((r) => r._pesoIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const pesosSal = salidas
+      .map((r) => r._pesoSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const ganKg = salidas
+      .map((r) => r.gananciaKg)
+      .filter((v) => Number.isFinite(v));
+    const vIng = salidas
+      .map((r) => r._vIng)
+      .filter((v) => Number.isFinite(v) && v > 0);
+    const vSal = salidas
+      .map((r) => r._vSal)
+      .filter((v) => Number.isFinite(v) && v > 0);
 
-    const dias = salidas.map((r) => r.dias).filter((v) => Number.isFinite(v) && v >= 0);
-    const utils = salidas.map((r) => r.utilidad).filter((v) => Number.isFinite(v));
+    const dias = salidas
+      .map((r) => r.dias)
+      .filter((v) => Number.isFinite(v) && v >= 0);
+    const utils = salidas
+      .map((r) => r.utilidad)
+      .filter((v) => Number.isFinite(v));
 
     const pIng = prom(pesosIng);
     const pSal = prom(pesosSal);
@@ -968,11 +1121,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const uDia = d && d > 0 && u !== null ? u / d : null;
     const kgDia = d && d > 0 && g !== null ? g / d : null;
 
-    if (elStatPesoIng) elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
-    if (elStatPesoSal) elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
-    if (elStatPesoGan) elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
+    if (elStatPesoIng)
+      elStatPesoIng.textContent = pIng === null ? "-" : `${pIng.toFixed(1)} kg`;
+    if (elStatPesoSal)
+      elStatPesoSal.textContent = pSal === null ? "-" : `${pSal.toFixed(1)} kg`;
+    if (elStatPesoGan)
+      elStatPesoGan.textContent = g === null ? "-" : `${g.toFixed(1)} kg`;
 
-    if (elStatDiasProm) elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
+    if (elStatDiasProm)
+      elStatDiasProm.textContent = d === null ? "-" : `${d.toFixed(0)} días`;
 
     if (elStatValorIng) elStatValorIng.textContent = vI === null ? "-" : fmtMoney(vI);
     if (elStatValorSal) elStatValorSal.textContent = vS === null ? "-" : fmtMoney(vS);
@@ -981,7 +1138,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (u === null) elStatUtilProm.textContent = "-";
       else {
         const n = Number(u);
-        elStatUtilProm.innerHTML = `<span class="${n >= 0 ? "text-emerald-600" : "text-rose-500"}">${fmtMoney(n)}</span>`;
+        elStatUtilProm.innerHTML = `<span class="${
+          n >= 0 ? "text-emerald-600" : "text-rose-500"
+        }">${fmtMoney(n)}</span>`;
       }
     }
 
@@ -989,24 +1148,29 @@ document.addEventListener("DOMContentLoaded", () => {
       if (uDia === null) elStatUtilDia.textContent = "-";
       else {
         const n = Number(uDia);
-        elStatUtilDia.innerHTML = `<span class="${n >= 0 ? "text-emerald-600" : "text-rose-500"}">${fmtMoney(n)}</span>`;
+        elStatUtilDia.innerHTML = `<span class="${
+          n >= 0 ? "text-emerald-600" : "text-rose-500"
+        }">${fmtMoney(n)}</span>`;
       }
     }
 
-    if (elStatKgDia) elStatKgDia.textContent = kgDia === null ? "-" : `${Number(kgDia).toFixed(2)} kg/día`;
+    if (elStatKgDia)
+      elStatKgDia.textContent =
+        kgDia === null ? "-" : `${Number(kgDia).toFixed(2)} kg/día`;
   }
 
   function renderPager(total, pageCount, startIdx) {
     const start = total ? startIdx + 1 : 0;
     const end = total ? startIdx + pageCount : 0;
-    const txt = `Mostrando ${start.toLocaleString("es-CO")}–${end.toLocaleString("es-CO")} de ${total.toLocaleString(
+    const txt = `Mostrando ${start.toLocaleString("es-CO")}–${end.toLocaleString(
       "es-CO",
-    )}`;
+    )} de ${total.toLocaleString("es-CO")}`;
 
     if (pageInfoTop) pageInfoTop.textContent = txt;
     if (pageInfoBottom) pageInfoBottom.textContent = txt;
 
-    const maxPage = Math.max(1, Math.ceil(total / (pageSize === Infinity ? total || 1 : pageSize)));
+    const denom = pageSize === Infinity ? total || 1 : pageSize;
+    const maxPage = Math.max(1, Math.ceil(total / Math.max(1, denom)));
 
     const disablePrev = page <= 1 || pageSize === Infinity;
     const disableNext = page >= maxPage || pageSize === Infinity;
@@ -1020,9 +1184,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateSelectionInfo(viewRowsAll) {
     const selectedInView = viewRowsAll.filter((r) => selectedKeys.has(rowKey(r))).length;
     const msg = selectedKeys.size
-      ? `Seleccionados: ${selectedKeys.size.toLocaleString("es-CO")} (en esta vista: ${selectedInView.toLocaleString(
+      ? `Seleccionados: ${selectedKeys.size.toLocaleString(
           "es-CO",
-        )}).`
+        )} (en esta vista: ${selectedInView.toLocaleString("es-CO")}).`
       : "Totales basados en todos los registros filtrados.";
 
     if (selectionInfo) selectionInfo.textContent = msg;
@@ -1415,7 +1579,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (rightCols.has(c.key)) {
           td.classList.add("text-right", "tabular-nums");
-          td.textContent = v === null || v === undefined ? "-" : fmtNum(v, c.key === "dias" ? 0 : 1);
+          td.textContent =
+            v === null || v === undefined ? "-" : fmtNum(v, c.key === "dias" ? 0 : 1);
           tr.appendChild(td);
           return;
         }
@@ -1426,7 +1591,9 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!Number.isFinite(n)) td.textContent = "-";
           else {
             if (c.key === "utilidad") {
-              td.innerHTML = `<span class="${n >= 0 ? "text-emerald-600" : "text-rose-500"}">${fmtMoney(n)}</span>`;
+              td.innerHTML = `<span class="${
+                n >= 0 ? "text-emerald-600" : "text-rose-500"
+              }">${fmtMoney(n)}</span>`;
             } else {
               td.textContent = fmtMoney(n);
             }
@@ -1527,29 +1694,42 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNextTop && pageNextTop.addEventListener("click", next);
     pageNextBottom && pageNextBottom.addEventListener("click", next);
 
-    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(100));
-    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(200));
-    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(300));
-    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(Infinity));
+    // ✅ Usa los presets dinámicos (sin depender de 100/200/300 fijos)
+    pageSize100Top && pageSize100Top.addEventListener("click", () => setSize(pagerChoices[0]));
+    pageSize200Top && pageSize200Top.addEventListener("click", () => setSize(pagerChoices[1]));
+    pageSize300Top && pageSize300Top.addEventListener("click", () => setSize(pagerChoices[2]));
+    pageSizeAllTop && pageSizeAllTop.addEventListener("click", () => setSize(pagerChoices[3]));
 
-    pageSize100Bottom && pageSize100Bottom.addEventListener("click", () => setSize(100));
-    pageSize200Bottom && pageSize200Bottom.addEventListener("click", () => setSize(200));
-    pageSize300Bottom && pageSize300Bottom.addEventListener("click", () => setSize(300));
-    pageSizeAllBottom && pageSizeAllBottom.addEventListener("click", () => setSize(Infinity));
+    pageSize100Bottom &&
+      pageSize100Bottom.addEventListener("click", () => setSize(pagerChoices[0]));
+    pageSize200Bottom &&
+      pageSize200Bottom.addEventListener("click", () => setSize(pagerChoices[1]));
+    pageSize300Bottom &&
+      pageSize300Bottom.addEventListener("click", () => setSize(pagerChoices[2]));
+    pageSizeAllBottom &&
+      pageSizeAllBottom.addEventListener("click", () => setSize(pagerChoices[3]));
+
+    // Si el preset actual no incluye el pageSize inicial, lo ajustamos
+    const finite = pagerChoices.filter((x) => x !== Infinity);
+    if (pageSize !== Infinity && !finite.includes(pageSize)) {
+      pageSize = pagerChoices[0];
+    }
 
     syncPageSizeButtonsUI();
   }
 
   function syncPageSizeButtonsUI() {
+    const [a, b, c, d] = pagerChoices;
+
     const allBtns = [
-      [pageSize100Top, 100],
-      [pageSize200Top, 200],
-      [pageSize300Top, 300],
-      [pageSizeAllTop, Infinity],
-      [pageSize100Bottom, 100],
-      [pageSize200Bottom, 200],
-      [pageSize300Bottom, 300],
-      [pageSizeAllBottom, Infinity],
+      [pageSize100Top, a],
+      [pageSize200Top, b],
+      [pageSize300Top, c],
+      [pageSizeAllTop, d],
+      [pageSize100Bottom, a],
+      [pageSize200Bottom, b],
+      [pageSize300Bottom, c],
+      [pageSizeAllBottom, d],
     ];
 
     allBtns.forEach(([btn, val]) => {
@@ -1597,7 +1777,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       let spanDays = 1;
       if (from && to) {
-        spanDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / msDay) + 1);
+        spanDays = Math.max(
+          1,
+          Math.round((to.getTime() - from.getTime()) / msDay) + 1,
+        );
       }
 
       const move = (d) => {
@@ -1649,7 +1832,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     btnExportarTodo &&
       btnExportarTodo.addEventListener("click", () => {
-        exportXLSX(allRows, `historico_TODO_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        exportXLSX(
+          allRows,
+          `historico_TODO_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        );
       });
 
     btnExportarVista &&
@@ -1679,7 +1865,10 @@ document.addEventListener("DOMContentLoaded", () => {
           return alert("No hay datos para exportar con la vista/filtros actuales.");
         }
 
-        exportXLSX(rowsToExport, `historico_${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        exportXLSX(
+          rowsToExport,
+          `historico_${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        );
       });
   }
 

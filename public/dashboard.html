@@ -196,25 +196,26 @@
         border-left: 1px solid rgba(55, 65, 81, 0.9);
       }
 
-      /* ✅ NUEVO: el wrapper ahora scrollea en Y y X (sticky perfecto) */
+      /* ✅ NUEVO: el wrapper ahora SOLO scrollea en X (la tabla crece en Y) */
       #tabla-wrapper {
         position: relative;
 
-        /* antes era overflow-x-auto; ahora es overflow:auto para permitir scroll vertical */
-        overflow: auto;
+        /* ✅ CAMBIO: antes overflow:auto; ahora solo horizontal (Y la maneja la página) */
+        overflow-x: auto;
+        overflow-y: visible;
 
-        /* altura máxima del área scroll (ajústala) */
-        max-height: var(--table-max-h);
+        /* ✅ CAMBIO: antes max-height: var(--table-max-h); ahora no limita altura */
+        max-height: none;
 
         /* ✅ gutter para que los FABs NO tapen columnas ni últimas filas */
         padding-right: 4.75rem; /* espacio a la derecha */
-        padding-bottom: 5.75rem; /* espacio abajo */
+        padding-bottom: 1rem; /* antes 5.75rem, hacía ver la tabla “pequeña” */
 
         /* mejora scrolling en móviles */
         -webkit-overflow-scrolling: touch;
       }
 
-      /* ✅ Sticky THEAD ahora dentro del wrapper: top=0 */
+      /* ✅ Sticky THEAD ahora pegado debajo del header (top = header) */
       #tabla thead tr.head-row th {
         position: sticky;
         top: var(--table-sticky-top);

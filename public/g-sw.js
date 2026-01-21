@@ -1,19 +1,17 @@
 // public/g-sw.js
 
-// ✅ Cambia esta versión cuando despliegues cambios importantes
 const VERSION = "2026-01-08-12";
 
 const STATIC_CACHE = `ganados-static-${VERSION}`;
 const RUNTIME_CACHE = `ganados-runtime-${VERSION}`;
 
-// Cache mínimo (solo archivos “shell” reales)
+
 const STATIC_ASSETS = [
   "/",
   "/g-manifest.webmanifest",
   "/g-pwa.js",
   "/tw-config.js",
 
-  // ✅ tus JS principales (ajusta si cambian nombres/rutas)
   "/dashboard.js",
   "/ingreso.js",
   "/salida.js",
