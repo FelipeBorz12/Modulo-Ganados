@@ -42,6 +42,22 @@
         /* ✅ NUEVO: alto máximo del área scroll de la tabla (ajústalo si quieres) */
         --table-max-h: 72vh;
       }
+      #tabla-head th {
+        position: sticky;
+        top: var(--table-sticky-top);
+        z-index: 20;
+        background: white;
+      }
+
+      .dark #tabla-head th {
+        background: #111827; /* o tu fondo dark */
+      }
+
+      /* 2da fila (filtros) debajo de la primera */
+      #tabla-head tr.filter-row th {
+        top: calc(var(--table-sticky-top) + var(--thead-row1-h, 44px));
+        z-index: 19;
+      }
 
       body {
         font-family: "Inter", sans-serif;
